@@ -27,8 +27,9 @@ def merge_paragraphs(
 ) -> list[Chunk]:
     """Merge adjacent NORMAL paragraphs into larger chunks for better translation context.
 
-    Headings always start a new chunk. Chunks are split when accumulated word count
-    exceeds *max_words*. A single paragraph exceeding the limit is kept intact.
+    Headings are always standalone single-member chunks. Chunks are split when
+    accumulated word count exceeds *max_words*. A single paragraph exceeding
+    the limit is kept intact.
     """
     if not paragraphs:
         return []
@@ -51,8 +52,7 @@ def merge_paragraphs(
 
         if is_heading:
             _flush()
-            current_members.append(para)
-            current_words = word_count
+            chunks.append(Chunk(text=para.text, members=(para,)))
             continue
 
         if current_members and current_words + word_count > max_words:

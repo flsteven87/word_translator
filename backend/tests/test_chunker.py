@@ -39,9 +39,11 @@ class TestMergeParagraphs:
             _normal("More body."),
         ]
         chunks = merge_paragraphs(paragraphs, max_words=100)
-        assert len(chunks) == 2
+        assert len(chunks) == 3
         assert chunks[0].text == "Body text."
-        assert chunks[1].text == "Section Title\n\nMore body."
+        assert chunks[1].text == "Section Title"
+        assert len(chunks[1].members) == 1
+        assert chunks[2].text == "More body."
 
     def test_word_budget_triggers_split(self):
         paragraphs = [
@@ -72,16 +74,18 @@ class TestMergeParagraphs:
         for i, chunk in enumerate(chunks):
             assert len(chunk.members) == 1
 
-    def test_heading_collects_following_body(self):
+    def test_heading_is_standalone_chunk(self):
         paragraphs = [
             _heading("Title", ParagraphStyle.TITLE),
             _normal("First paragraph."),
             _normal("Second paragraph."),
         ]
         chunks = merge_paragraphs(paragraphs, max_words=100)
-        assert len(chunks) == 1
-        assert len(chunks[0].members) == 3
-        assert chunks[0].text == "Title\n\nFirst paragraph.\n\nSecond paragraph."
+        assert len(chunks) == 2
+        assert chunks[0].text == "Title"
+        assert len(chunks[0].members) == 1
+        assert chunks[1].text == "First paragraph.\n\nSecond paragraph."
+        assert len(chunks[1].members) == 2
 
 
 # --- unmerge_translation ---

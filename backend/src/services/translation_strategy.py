@@ -10,7 +10,7 @@ SYSTEM_PROMPT = (
     "You MUST use Traditional Chinese characters only — never use Simplified Chinese. "
     "If an item contains multiple paragraphs separated by blank lines, "
     "preserve the same paragraph structure in your translation. "
-    "Return ONLY the translations in the exact same numbered format [N]. "
+    "Return ONLY the translations in the exact same numbered format <<<N>>>. "
     "Do not add, remove, or reorder any items."
 )
 
@@ -41,7 +41,7 @@ class BatchTranslationStrategy(TranslationStrategy):
         return [item for batch in translated_batches for item in batch]
 
     async def _translate_batch(self, batch: list[str]) -> list[str]:
-        numbered = "\n".join(f"[{i + 1}] {p}" for i, p in enumerate(batch))
+        numbered = "\n".join(f"<<<{i + 1}>>> {p}" for i, p in enumerate(batch))
         response = await self._client.chat.completions.create(
             model=self._model,
             messages=[
@@ -67,15 +67,15 @@ class BatchTranslationStrategy(TranslationStrategy):
             model=self._model,
             messages=[
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": f"[1] {text}"},
+                {"role": "user", "content": f"<<<1>>> {text}"},
             ],
         )
         content = (response.choices[0].message.content or "").strip()
-        return re.sub(r"^\[1\]\s*", "", content)
+        return re.sub(r"^<<<1>>>\s*", "", content)
 
     @staticmethod
     def _parse_numbered_response(content: str, expected_count: int) -> list[str]:
-        pattern = r"\[(\d+)\]\s*"
+        pattern = r"<<<(\d+)>>>\s*"
         parts = re.split(pattern, content.strip())
         translations: dict[int, str] = {}
         i = 1
