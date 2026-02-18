@@ -30,7 +30,7 @@ def test_translation_result_json_roundtrip():
 
 def test_translation_summary():
     summary = TranslationSummary(
-        id="abc-123",
+        id="550e8400-e29b-41d4-a716-446655440000",
         filename="doc.docx",
         created_at="2026-01-01T00:00:00Z",
         paragraph_count=5,

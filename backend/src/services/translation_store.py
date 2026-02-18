@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
 
-from src.core.exceptions import NotFoundError
+from pydantic import ValidationError
+
+from src.core.exceptions import AppException, NotFoundError
 from src.models.translation import TranslationResult, TranslationSummary
 
 
@@ -23,7 +25,10 @@ class TranslationStore:
         path = self._storage_dir / f"{translation_id}.json"
         if not path.exists():
             raise NotFoundError("Translation", translation_id)
-        return TranslationResult.model_validate_json(path.read_text(encoding="utf-8"))
+        try:
+            return TranslationResult.model_validate_json(path.read_text(encoding="utf-8"))
+        except ValidationError as e:
+            raise AppException(f"Invalid translation data for '{translation_id}'") from e
 
     def list_all(self) -> list[TranslationSummary]:
         results: list[TranslationSummary] = []
@@ -33,13 +38,16 @@ class TranslationStore:
             reverse=True,
         )
         for path in paths:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            results.append(
-                TranslationSummary(
-                    id=data["id"],
-                    filename=data["filename"],
-                    created_at=data["created_at"],
-                    paragraph_count=len(data["paragraphs"]),
+            try:
+                data = json.loads(path.read_text(encoding="utf-8"))
+                results.append(
+                    TranslationSummary(
+                        id=data["id"],
+                        filename=data["filename"],
+                        created_at=data["created_at"],
+                        paragraph_count=len(data["paragraphs"]),
+                    )
                 )
-            )
+            except (json.JSONDecodeError, KeyError) as e:
+                raise AppException(f"Corrupted translation file: {path.name}") from e
         return results

@@ -19,6 +19,9 @@ ALLOWED_CONTENT_TYPES = {
 }
 
 
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
 @router.post("/upload")
 async def upload_and_translate(
     file: UploadFile,
@@ -27,6 +30,8 @@ async def upload_and_translate(
     if file.content_type not in ALLOWED_CONTENT_TYPES:
         raise InputValidationError("Only .docx files are supported")
     content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise InputValidationError("File size exceeds the 10 MB limit")
     return await service.translate_document(content, file.filename or "unknown.docx")
 
 
@@ -49,7 +54,7 @@ def download_translation(
     service: TranslationServiceDep,
 ) -> Response:
     result = service.get_translation(translation_id)
-    docx_bytes = service.export_translation(translation_id)
+    docx_bytes = service.export_translation(result)
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",

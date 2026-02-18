@@ -75,6 +75,7 @@ def test_export_translation(service):
             service.translate_document(docx_content, "test.docx")
         )
 
-    exported = service.export_translation(str(result.id))
+    loaded = service.get_translation(str(result.id))
+    exported = service.export_translation(loaded)
     assert isinstance(exported, bytes)
     assert len(exported) > 0

@@ -17,7 +17,7 @@ class TranslationResult(BaseModel):
 
 
 class TranslationSummary(BaseModel):
-    id: str
+    id: UUID
     filename: str
     created_at: datetime
     paragraph_count: int

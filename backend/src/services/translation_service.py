@@ -44,6 +44,5 @@ class TranslationService:
     def list_translations(self) -> list[TranslationSummary]:
         return self._store.list_all()
 
-    def export_translation(self, translation_id: str) -> bytes:
-        result = self._store.load(translation_id)
+    def export_translation(self, result: TranslationResult) -> bytes:
         return self._exporter.export(result)
