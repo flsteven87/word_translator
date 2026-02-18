@@ -11,7 +11,7 @@ export function UploadZone({ onFileSelect, error }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function handleFile(file: File) {
-    if (!file.name.endsWith(".docx")) return
+    if (!file.name.endsWith(".docx") && !file.name.endsWith(".pdf")) return
     onFileSelect(file)
   }
 
@@ -51,7 +51,7 @@ export function UploadZone({ onFileSelect, error }: Props) {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".docx"
+          accept=".docx,.pdf"
           className="hidden"
           onChange={handleFileInput}
         />
@@ -77,10 +77,10 @@ export function UploadZone({ onFileSelect, error }: Props) {
           </div>
           <div className="text-center">
             <p className="text-sm font-medium">
-              {dragOver ? "Drop file here" : "Drag and drop your .docx file"}
+              {dragOver ? "Drop file here" : "Drag and drop your document"}
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              or click to browse
+              .docx or .pdf — or click to browse
             </p>
           </div>
         </button>

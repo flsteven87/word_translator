@@ -1,3 +1,4 @@
+from pathlib import PurePosixPath
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, UploadFile
@@ -16,8 +17,10 @@ TranslationServiceDep = Annotated[
 
 ALLOWED_CONTENT_TYPES = {
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/pdf",
 }
 
+ALLOWED_EXTENSIONS = {".docx", ".pdf"}
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
@@ -27,8 +30,9 @@ async def upload_and_translate(
     file: UploadFile,
     service: TranslationServiceDep,
 ) -> TranslationResult:
-    if file.content_type not in ALLOWED_CONTENT_TYPES:
-        raise InputValidationError("Only .docx files are supported")
+    ext = PurePosixPath(file.filename or "").suffix.lower()
+    if file.content_type not in ALLOWED_CONTENT_TYPES and ext not in ALLOWED_EXTENSIONS:
+        raise InputValidationError("Only .docx and .pdf files are supported")
     content = await file.read()
     if len(content) > MAX_FILE_SIZE:
         raise InputValidationError("File size exceeds the 10 MB limit")

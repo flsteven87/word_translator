@@ -2,7 +2,8 @@ from io import BytesIO
 
 from docx import Document
 
-from src.services.document_parser import DocumentParser
+from src.models.translation import ParagraphStyle
+from src.services.document_parser import DocumentParser, ParsedParagraph
 
 
 def _make_docx(paragraphs: list[str]) -> bytes:
@@ -16,16 +17,18 @@ def _make_docx(paragraphs: list[str]) -> bytes:
 
 def test_parse_extracts_paragraphs():
     content = _make_docx(["First paragraph.", "Second paragraph."])
-    parser = DocumentParser()
-    result = parser.parse(content)
-    assert result == ["First paragraph.", "Second paragraph."]
+    result = DocumentParser().parse(content, "test.docx")
+    assert len(result) == 2
+    assert result[0] == ParsedParagraph(text="First paragraph.", style=ParagraphStyle.NORMAL)
+    assert result[1] == ParsedParagraph(text="Second paragraph.", style=ParagraphStyle.NORMAL)
 
 
 def test_parse_skips_empty_paragraphs():
     content = _make_docx(["Hello.", "", "  ", "World."])
-    parser = DocumentParser()
-    result = parser.parse(content)
-    assert result == ["Hello.", "World."]
+    result = DocumentParser().parse(content, "test.docx")
+    assert len(result) == 2
+    assert result[0].text == "Hello."
+    assert result[1].text == "World."
 
 
 def test_parse_extracts_headings():
@@ -34,6 +37,7 @@ def test_parse_extracts_headings():
     doc.add_paragraph("Body text.")
     buf = BytesIO()
     doc.save(buf)
-    parser = DocumentParser()
-    result = parser.parse(buf.getvalue())
-    assert result == ["Title", "Body text."]
+    result = DocumentParser().parse(buf.getvalue(), "test.docx")
+    assert len(result) == 2
+    assert result[0] == ParsedParagraph(text="Title", style=ParagraphStyle.HEADING_1)
+    assert result[1] == ParsedParagraph(text="Body text.", style=ParagraphStyle.NORMAL)
