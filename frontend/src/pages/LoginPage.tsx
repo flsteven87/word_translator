@@ -2,7 +2,7 @@ import { useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
-const ACCESS_CODE = "***REMOVED***"
+const ACCESS_CODE = import.meta.env.VITE_ACCESS_CODE ?? ""
 
 interface Props {
   readonly onAuthenticated: () => void
