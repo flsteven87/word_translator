@@ -1,4 +1,9 @@
-from src.models.translation import TranslatedParagraph, TranslationResult, TranslationSummary
+from src.models.translation import (
+    ParagraphStyle,
+    TranslatedParagraph,
+    TranslationResult,
+    TranslationSummary,
+)
 
 
 def test_translation_result_defaults():
@@ -36,3 +41,27 @@ def test_translation_summary():
         paragraph_count=5,
     )
     assert summary.paragraph_count == 5
+
+
+def test_figure_and_table_styles_roundtrip():
+    result = TranslationResult(
+        filename="test.pdf",
+        paragraphs=[
+            TranslatedParagraph(
+                original="<::bar chart::>Y-axis label: results",
+                translated="",
+                style=ParagraphStyle.FIGURE,
+            ),
+            TranslatedParagraph(
+                original='<table id="1-1"><tr><td>Data</td></tr></table>',
+                translated="",
+                style=ParagraphStyle.TABLE,
+            ),
+        ],
+    )
+    json_str = result.model_dump_json()
+    restored = TranslationResult.model_validate_json(json_str)
+    assert restored.paragraphs[0].style == ParagraphStyle.FIGURE
+    assert restored.paragraphs[1].style == ParagraphStyle.TABLE
+    assert restored.paragraphs[0].translated == ""
+    assert restored.paragraphs[1].translated == ""

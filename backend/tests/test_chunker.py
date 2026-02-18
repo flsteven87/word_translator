@@ -94,3 +94,53 @@ class TestGroupParagraphs:
         groups = group_paragraphs(paragraphs, max_words=100)
         assert groups[0][0].text == "One."
         assert groups[0][1].text == "Two."
+
+
+def _figure(text: str) -> ParsedParagraph:
+    return ParsedParagraph(text=text, style=ParagraphStyle.FIGURE)
+
+
+def _table(text: str) -> ParsedParagraph:
+    return ParsedParagraph(text=text, style=ParagraphStyle.TABLE)
+
+
+class TestGroupParagraphsFigureTable:
+    def test_figure_is_standalone(self):
+        paragraphs = [
+            _normal("Before."),
+            _figure("<::chart::>"),
+            _normal("After."),
+        ]
+        groups = group_paragraphs(paragraphs, max_words=100)
+        assert len(groups) == 3
+        assert groups[1] == [paragraphs[1]]
+
+    def test_table_is_standalone(self):
+        paragraphs = [
+            _normal("Before."),
+            _table("<table><tr><td>X</td></tr></table>"),
+            _normal("After."),
+        ]
+        groups = group_paragraphs(paragraphs, max_words=100)
+        assert len(groups) == 3
+        assert groups[1] == [paragraphs[1]]
+
+    def test_consecutive_figures_each_standalone(self):
+        paragraphs = [_figure("Fig 1"), _figure("Fig 2"), _table("Table 1")]
+        groups = group_paragraphs(paragraphs, max_words=100)
+        assert len(groups) == 3
+        for group in groups:
+            assert len(group) == 1
+
+    def test_figure_between_normals_splits_group(self):
+        paragraphs = [
+            _normal("A."),
+            _normal("B."),
+            _figure("<::img::>"),
+            _normal("C."),
+        ]
+        groups = group_paragraphs(paragraphs, max_words=100)
+        assert len(groups) == 3
+        assert groups[0] == [paragraphs[0], paragraphs[1]]
+        assert groups[1] == [paragraphs[2]]
+        assert groups[2] == [paragraphs[3]]

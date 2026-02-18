@@ -8,6 +8,8 @@ export type ParagraphStyle =
   | "heading_3"
   | "heading_4"
   | "normal"
+  | "figure"
+  | "table"
 
 export interface TranslatedParagraph {
   original: string

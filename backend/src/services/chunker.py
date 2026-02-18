@@ -1,13 +1,15 @@
 from src.models.translation import ParagraphStyle
 from src.services.document_parser import ParsedParagraph
 
-_HEADING_STYLES = frozenset(
+_STANDALONE_STYLES = frozenset(
     {
         ParagraphStyle.TITLE,
         ParagraphStyle.HEADING_1,
         ParagraphStyle.HEADING_2,
         ParagraphStyle.HEADING_3,
         ParagraphStyle.HEADING_4,
+        ParagraphStyle.FIGURE,
+        ParagraphStyle.TABLE,
     }
 )
 
@@ -17,10 +19,10 @@ def group_paragraphs(
 ) -> list[list[ParsedParagraph]]:
     """Group paragraphs for batched translation.
 
-    Headings are always standalone single-member groups. Consecutive NORMAL
-    paragraphs accumulate until the word budget is exceeded. Each group becomes
-    one ``strategy.translate()`` call where every paragraph gets its own
-    ``<<<N>>>`` number.
+    Headings, figures, and tables are always standalone single-member groups.
+    Consecutive NORMAL paragraphs accumulate until the word budget is exceeded.
+    Each group becomes one ``strategy.translate()`` call where every paragraph
+    gets its own ``<<<N>>>`` number.
     """
     if not paragraphs:
         return []
@@ -37,7 +39,7 @@ def group_paragraphs(
             current_words = 0
 
     for para in paragraphs:
-        if para.style in _HEADING_STYLES:
+        if para.style in _STANDALONE_STYLES:
             _flush()
             groups.append([para])
             continue

@@ -5,6 +5,8 @@ from docx.shared import Pt
 
 from src.models.translation import ParagraphStyle, TranslationResult
 
+_NON_EXPORTABLE_STYLES = frozenset({ParagraphStyle.FIGURE, ParagraphStyle.TABLE})
+
 _STYLE_MAP: dict[ParagraphStyle, str] = {
     ParagraphStyle.TITLE: "Title",
     ParagraphStyle.HEADING_1: "Heading 1",
@@ -49,6 +51,8 @@ class WordExporter:
         font.size = Pt(12)
 
         for para in result.paragraphs:
+            if para.style in _NON_EXPORTABLE_STYLES:
+                continue
             word_style = _STYLE_MAP[para.style]
             doc.add_paragraph(para.translated, style=word_style)
 

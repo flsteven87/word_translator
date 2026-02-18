@@ -40,6 +40,17 @@ _HTML_ANCHOR = re.compile(r"^<a\s+id=['\"].*?['\"]>\s*</a>$")
 _HTML_COMMENT = re.compile(r"^<!--.*?-->$")
 _HTML_TAGS = re.compile(r"</?(?:sup|sub|em|strong|span|a|i|b)[^>]*>")
 
+_ADE_DELIMITER = re.compile(r"<::.*?::>")
+_HTML_TABLE_OPEN = re.compile(r"<table[\s>]", re.IGNORECASE)
+_HTML_TABLE_CLOSE = re.compile(r"</table>", re.IGNORECASE)
+
+_CHUNK_FIGURE_TYPES = frozenset({
+    "chunkFigure", "chunkLogo", "chunkCard", "chunkAttestation", "chunkScanCode",
+})
+_CHUNK_SKIP_TYPES = frozenset({
+    "chunkMarginalia", "chunkPageHeader", "chunkPageFooter", "chunkPageNumber",
+})
+
 
 def _strip_inline_markers(text: str) -> str:
     text = _HTML_TAGS.sub("", text)
@@ -96,9 +107,9 @@ class DocumentParser:
             document=file_content,
             model="dpt-2-latest",
         )
-        results = _parse_markdown(response.markdown)
+        results = _parse_ade_chunks(response.chunks)
         if not results:
-            raise ValueError("ADE returned empty markdown")
+            raise ValueError("ADE returned no usable chunks")
         return results
 
     def _parse_pdf_with_pymupdf(self, file_content: bytes) -> list[ParsedParagraph]:
@@ -120,10 +131,30 @@ class DocumentParser:
         return results
 
 
+def _parse_ade_chunks(chunks: list) -> list[ParsedParagraph]:
+    results: list[ParsedParagraph] = []
+    for chunk in chunks:
+        markdown = chunk.markdown.strip() if chunk.markdown else ""
+        if not markdown:
+            continue
+        chunk_type = chunk.type
+        if chunk_type in _CHUNK_SKIP_TYPES:
+            continue
+        if chunk_type in _CHUNK_FIGURE_TYPES:
+            results.append(ParsedParagraph(text=markdown, style=ParagraphStyle.FIGURE))
+        elif chunk_type == "chunkTable":
+            results.append(ParsedParagraph(text=markdown, style=ParagraphStyle.TABLE))
+        else:
+            results.extend(_parse_markdown(markdown))
+    return results
+
+
 def _parse_markdown(md_text: str) -> list[ParsedParagraph]:
     results: list[ParsedParagraph] = []
     buffer: list[str] = []
     in_code_block = False
+    in_html_table = False
+    table_buffer: list[str] = []
 
     def flush_buffer() -> None:
         text = " ".join(buffer).strip()
@@ -131,8 +162,30 @@ def _parse_markdown(md_text: str) -> list[ParsedParagraph]:
             results.append(ParsedParagraph(text=text, style=ParagraphStyle.NORMAL))
         buffer.clear()
 
+    def flush_table() -> None:
+        nonlocal in_html_table
+        text = "\n".join(table_buffer).strip()
+        if text:
+            results.append(ParsedParagraph(text=text, style=ParagraphStyle.TABLE))
+        table_buffer.clear()
+        in_html_table = False
+
     for line in md_text.split("\n"):
         stripped = line.strip()
+
+        if in_html_table:
+            table_buffer.append(stripped)
+            if _HTML_TABLE_CLOSE.search(stripped):
+                flush_table()
+            continue
+
+        if _HTML_TABLE_OPEN.search(stripped):
+            flush_buffer()
+            in_html_table = True
+            table_buffer.append(stripped)
+            if _HTML_TABLE_CLOSE.search(stripped):
+                flush_table()
+            continue
 
         if _CODE_FENCE.match(stripped):
             flush_buffer()
@@ -152,6 +205,11 @@ def _parse_markdown(md_text: str) -> list[ParsedParagraph]:
             or _IMAGE_PATTERN.match(stripped)
             or _TABLE_ROW.match(stripped)
         ):
+            continue
+
+        if _ADE_DELIMITER.search(stripped):
+            flush_buffer()
+            results.append(ParsedParagraph(text=stripped, style=ParagraphStyle.FIGURE))
             continue
 
         heading_match = _HEADING_PATTERN.match(stripped)
@@ -176,5 +234,7 @@ def _parse_markdown(md_text: str) -> list[ParsedParagraph]:
         if clean:
             buffer.append(clean)
 
+    if in_html_table:
+        flush_table()
     flush_buffer()
     return results

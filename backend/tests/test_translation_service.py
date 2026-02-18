@@ -6,7 +6,7 @@ import pytest
 from docx import Document
 
 from src.core.exceptions import NotFoundError
-from src.models.translation import TranslationResult
+from src.models.translation import ParagraphStyle, TranslationResult
 from src.services.translation_service import TranslationService
 
 
@@ -152,3 +152,37 @@ async def test_heading_separated_groups_translated_independently(service):
     assert result.paragraphs[2].translated == "方法細節在此。"
     # 3 groups (body, heading, body) = 3 translate calls
     assert call_count == 3
+
+
+@pytest.mark.asyncio
+async def test_figure_and_table_paragraphs_skip_translation(service):
+    """FIGURE and TABLE paragraphs should get translated='' without calling strategy."""
+    from src.services.document_parser import ParsedParagraph
+
+    parsed = [
+        ParsedParagraph(text="Normal text.", style=ParagraphStyle.NORMAL),
+        ParsedParagraph(text="<::chart::>", style=ParagraphStyle.FIGURE),
+        ParsedParagraph(text="<table><tr><td>X</td></tr></table>", style=ParagraphStyle.TABLE),
+        ParsedParagraph(text="More text.", style=ParagraphStyle.NORMAL),
+    ]
+
+    with patch.object(service, "_parser") as mock_parser, \
+         patch.object(
+             service._strategy, "translate", new_callable=AsyncMock
+         ) as mock_translate:
+        mock_parser.parse.return_value = parsed
+        mock_translate.side_effect = [
+            ["普通文本。"],
+            ["更多文本。"],
+        ]
+        result = await service.translate_document(b"fake", "test.pdf")
+
+    # Strategy should only be called for the two NORMAL groups, not for FIGURE or TABLE
+    assert mock_translate.call_count == 2
+
+    assert result.paragraphs[0].translated == "普通文本。"
+    assert result.paragraphs[1].style == ParagraphStyle.FIGURE
+    assert result.paragraphs[1].translated == ""
+    assert result.paragraphs[2].style == ParagraphStyle.TABLE
+    assert result.paragraphs[2].translated == ""
+    assert result.paragraphs[3].translated == "更多文本。"

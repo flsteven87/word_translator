@@ -4,6 +4,7 @@ from pathlib import Path
 from openai import AsyncOpenAI
 
 from src.models.translation import (
+    ParagraphStyle,
     TranslatedParagraph,
     TranslationResult,
     TranslationSummary,
@@ -13,6 +14,8 @@ from src.services.document_parser import DocumentParser, ParsedParagraph
 from src.services.translation_store import TranslationStore
 from src.services.translation_strategy import BatchTranslationStrategy
 from src.services.word_exporter import WordExporter
+
+_NON_TRANSLATABLE_STYLES = frozenset({ParagraphStyle.FIGURE, ParagraphStyle.TABLE})
 
 
 class TranslationService:
@@ -63,6 +66,13 @@ class TranslationService:
         async def _translate_group(
             group: list[ParsedParagraph],
         ) -> list[TranslatedParagraph]:
+            if group[0].style in _NON_TRANSLATABLE_STYLES:
+                return [
+                    TranslatedParagraph(
+                        original=member.text, translated="", style=member.style
+                    )
+                    for member in group
+                ]
             texts = [p.text for p in group]
             translated = await self._strategy.translate(texts)
             return [

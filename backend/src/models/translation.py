@@ -12,6 +12,8 @@ class ParagraphStyle(str, Enum):
     HEADING_3 = "heading_3"
     HEADING_4 = "heading_4"
     NORMAL = "normal"
+    FIGURE = "figure"
+    TABLE = "table"
 
 
 class TranslatedParagraph(BaseModel):

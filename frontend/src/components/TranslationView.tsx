@@ -17,6 +17,8 @@ const STYLE_WEIGHTS: Record<ParagraphStyle, string> = {
   heading_3: "font-semibold",
   heading_4: "font-medium italic",
   normal: "",
+  figure: "",
+  table: "",
 }
 
 const STYLE_SIZES: Record<ParagraphStyle, string> = {
@@ -26,11 +28,18 @@ const STYLE_SIZES: Record<ParagraphStyle, string> = {
   heading_3: "calc(0.875rem * var(--font-scale, 1))",
   heading_4: "calc(0.875rem * var(--font-scale, 1))",
   normal: "calc(0.875rem * var(--font-scale, 1))",
+  figure: "calc(0.75rem * var(--font-scale, 1))",
+  table: "calc(0.75rem * var(--font-scale, 1))",
 }
 
 function isStructural(style: ParagraphStyle): boolean {
-  return style !== "normal"
+  return style !== "normal" && style !== "figure" && style !== "table"
 }
+
+function isNonTranslatable(style: ParagraphStyle): boolean {
+  return style === "figure" || style === "table"
+}
+
 
 function getTopSpacing(style: ParagraphStyle, index: number, prevIsNormal: boolean): string {
   if (!isStructural(style) || index === 0) return ""
@@ -98,6 +107,33 @@ export function TranslationView({ result }: Props) {
             const structural = isStructural(p.style)
             const prevIsNormal = i > 0 && !isStructural(result.paragraphs[i - 1].style)
             const topSpacing = getTopSpacing(p.style, i, prevIsNormal)
+
+            if (isNonTranslatable(p.style)) {
+              return (
+                <div
+                  key={i}
+                  className={`rounded-md bg-muted/30 ${topSpacing}`}
+                >
+                  <div className="px-3 py-1.5 text-xs text-muted-foreground font-medium">
+                    {p.style === "figure" ? "Figure" : "Table"}
+                  </div>
+                  {p.style === "table" ? (
+                    <div
+                      className="px-3 pb-3 text-sm leading-relaxed overflow-x-auto [&_table]:w-full [&_table]:border-collapse [&_td]:border [&_td]:border-border/40 [&_td]:px-2 [&_td]:py-1 [&_td]:text-xs [&_th]:border [&_th]:border-border/40 [&_th]:px-2 [&_th]:py-1 [&_th]:text-xs [&_th]:font-medium"
+                      style={{ fontSize }}
+                      dangerouslySetInnerHTML={{ __html: p.original }}
+                    />
+                  ) : (
+                    <div
+                      className="px-3 pb-3 text-muted-foreground/80 font-mono leading-relaxed whitespace-pre-wrap break-all"
+                      style={{ fontSize }}
+                    >
+                      {p.original}
+                    </div>
+                  )}
+                </div>
+              )
+            }
 
             if (structural) {
               return (

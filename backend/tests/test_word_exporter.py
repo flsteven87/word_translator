@@ -86,3 +86,36 @@ def test_export_from_docx_unmatched_paragraphs_unchanged():
     texts = [p.text for p in doc.paragraphs if p.text]
     assert "你好" in texts
     assert "Extra paragraph" in texts
+
+
+def test_export_from_scratch_skips_figure_and_table():
+    result = _make_result(
+        paragraphs=[
+            TranslatedParagraph(
+                original="Hello", translated="你好", style=ParagraphStyle.NORMAL
+            ),
+            TranslatedParagraph(
+                original="<::chart::>",
+                translated="",
+                style=ParagraphStyle.FIGURE,
+            ),
+            TranslatedParagraph(
+                original="<table><tr><td>X</td></tr></table>",
+                translated="",
+                style=ParagraphStyle.TABLE,
+            ),
+            TranslatedParagraph(
+                original="World", translated="世界", style=ParagraphStyle.NORMAL
+            ),
+        ],
+    )
+    exporter = WordExporter()
+    docx_bytes = exporter.export(result)
+
+    doc = Document(BytesIO(docx_bytes))
+    texts = [p.text for p in doc.paragraphs if p.text]
+    assert texts == ["你好", "世界"]
+    # Verify figure/table content is not in the export
+    all_text = " ".join(texts)
+    assert "<::chart::>" not in all_text
+    assert "<table>" not in all_text
