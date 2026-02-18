@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     openai_model: str = "gpt-4o-mini"
 
     cors_origins: str = "http://localhost:2321"
+    storage_dir: str = "data/translations"
 
     model_config = SettingsConfigDict(
         env_file=".env",

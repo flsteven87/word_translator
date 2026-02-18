@@ -1,0 +1,4 @@
+data/translations/
+__pycache__/
+*.pyc
+.env
