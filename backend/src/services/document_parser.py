@@ -1,6 +1,7 @@
+import base64
 import logging
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import BytesIO
 
 import pymupdf
@@ -58,10 +59,14 @@ def _strip_inline_markers(text: str) -> str:
     return _INLINE_MARKERS.sub(r"\1", text).strip()
 
 
+_FIGURE_DPI = 150
+
+
 @dataclass(frozen=True)
 class ParsedParagraph:
     text: str
     style: ParagraphStyle
+    image_base64: str | None = field(default=None, repr=False)
 
 
 class DocumentParser:
@@ -108,7 +113,8 @@ class DocumentParser:
             document=file_content,
             model="dpt-2-latest",
         )
-        results = _parse_ade_chunks(response.chunks)
+        with pymupdf.open(stream=file_content, filetype="pdf") as doc:
+            results = _parse_ade_chunks(response.chunks, doc)
         if not results:
             raise ValueError("ADE returned no usable chunks")
         return results
@@ -132,7 +138,30 @@ class DocumentParser:
         return results
 
 
-def _parse_ade_chunks(chunks: list) -> list[ParsedParagraph]:
+def _extract_figure_image(
+    doc: pymupdf.Document, grounding: object,
+) -> str | None:
+    """Crop the figure region from the PDF page and return as base64 PNG."""
+    try:
+        box = grounding.box
+        page = doc[grounding.page]
+        rect = page.rect
+        clip = pymupdf.Rect(
+            box.left * rect.width,
+            box.top * rect.height,
+            box.right * rect.width,
+            box.bottom * rect.height,
+        )
+        pixmap = page.get_pixmap(clip=clip, dpi=_FIGURE_DPI)
+        return base64.b64encode(pixmap.tobytes("png")).decode("ascii")
+    except Exception:
+        logger.warning("Failed to extract figure image at page %s", grounding.page)
+        return None
+
+
+def _parse_ade_chunks(
+    chunks: list, doc: pymupdf.Document,
+) -> list[ParsedParagraph]:
     results: list[ParsedParagraph] = []
     for chunk in chunks:
         markdown = chunk.markdown.strip() if chunk.markdown else ""
@@ -143,7 +172,10 @@ def _parse_ade_chunks(chunks: list) -> list[ParsedParagraph]:
         if chunk_type in _CHUNK_SKIP_TYPES:
             continue
         if chunk_type in _CHUNK_FIGURE_TYPES:
-            results.append(ParsedParagraph(text=markdown, style=ParagraphStyle.FIGURE))
+            image = _extract_figure_image(doc, chunk.grounding)
+            results.append(ParsedParagraph(
+                text=markdown, style=ParagraphStyle.FIGURE, image_base64=image,
+            ))
         elif chunk_type == "table":
             results.append(ParsedParagraph(text=markdown, style=ParagraphStyle.TABLE))
         else:

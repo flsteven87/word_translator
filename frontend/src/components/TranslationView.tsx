@@ -123,6 +123,14 @@ export function TranslationView({ result }: Props) {
                       style={{ fontSize }}
                       dangerouslySetInnerHTML={{ __html: p.original }}
                     />
+                  ) : p.image ? (
+                    <div className="px-3 pb-3">
+                      <img
+                        src={`data:image/png;base64,${p.image}`}
+                        alt={p.original}
+                        className="max-w-full h-auto rounded"
+                      />
+                    </div>
                   ) : (
                     <div
                       className="px-3 pb-3 text-muted-foreground/80 font-mono leading-relaxed whitespace-pre-wrap break-all"

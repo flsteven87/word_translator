@@ -45,7 +45,7 @@ class TranslationService:
     async def retranslate(self, translation_id: str) -> TranslationResult:
         existing = self._store.load(translation_id)
         parsed = [
-            ParsedParagraph(text=p.original, style=p.style)
+            ParsedParagraph(text=p.original, style=p.style, image_base64=p.image)
             for p in existing.paragraphs
         ]
         paragraphs = await self._translate_parsed(parsed)
@@ -69,7 +69,8 @@ class TranslationService:
             if group[0].style in _NON_TRANSLATABLE_STYLES:
                 return [
                     TranslatedParagraph(
-                        original=member.text, translated="", style=member.style
+                        original=member.text, translated="", style=member.style,
+                        image=member.image_base64,
                     )
                     for member in group
                 ]
@@ -77,7 +78,7 @@ class TranslationService:
             translated = await self._strategy.translate(texts)
             return [
                 TranslatedParagraph(
-                    original=member.text, translated=trans, style=member.style
+                    original=member.text, translated=trans, style=member.style,
                 )
                 for member, trans in zip(group, translated)
             ]

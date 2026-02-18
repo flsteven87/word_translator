@@ -20,7 +20,30 @@ def _make_chunk(chunk_type: str, markdown: str) -> MagicMock:
     chunk = MagicMock()
     chunk.type = chunk_type
     chunk.markdown = markdown
+    chunk.grounding.page = 0
+    chunk.grounding.box.left = 0.1
+    chunk.grounding.box.top = 0.1
+    chunk.grounding.box.right = 0.5
+    chunk.grounding.box.bottom = 0.3
     return chunk
+
+
+def _mock_pymupdf_open():
+    """Patch pymupdf.open to return a mock PDF document with image extraction support."""
+    mock_doc = MagicMock()
+    mock_page = MagicMock()
+    mock_page.rect.width = 612.0
+    mock_page.rect.height = 792.0
+    mock_pixmap = MagicMock()
+    mock_pixmap.tobytes.return_value = b"\x89PNG-fake"
+    mock_page.get_pixmap.return_value = mock_pixmap
+    mock_doc.__getitem__ = MagicMock(return_value=mock_page)
+    mock_doc.__enter__ = MagicMock(return_value=mock_doc)
+    mock_doc.__exit__ = MagicMock(return_value=False)
+    return patch("src.services.document_parser.pymupdf.open", return_value=mock_doc)
+
+
+# --- DOCX parsing tests ---
 
 
 def test_parse_extracts_paragraphs():
@@ -51,6 +74,9 @@ def test_parse_extracts_headings():
     assert result[1] == ParsedParagraph(text="Body text.", style=ParagraphStyle.NORMAL)
 
 
+# --- ADE PDF parsing integration tests ---
+
+
 def test_parse_pdf_uses_ade_when_available():
     fake_response = MagicMock()
     fake_response.chunks = [
@@ -59,7 +85,8 @@ def test_parse_pdf_uses_ade_when_available():
     ]
 
     parser = DocumentParser(vision_agent_api_key="test-key")
-    with patch.object(parser._ade_client, "parse", return_value=fake_response) as mock_parse:
+    with patch.object(parser._ade_client, "parse", return_value=fake_response) as mock_parse, \
+         _mock_pymupdf_open():
         result = parser.parse(b"fake-pdf-bytes", "test.pdf")
 
     mock_parse.assert_called_once()
@@ -121,7 +148,8 @@ def test_chunks_figure_identified():
         _make_chunk("figure", "<::bar chart::>Y-axis label"),
     ]
     parser = DocumentParser(vision_agent_api_key="test-key")
-    with patch.object(parser._ade_client, "parse", return_value=fake_response):
+    with patch.object(parser._ade_client, "parse", return_value=fake_response), \
+         _mock_pymupdf_open():
         result = parser.parse(b"fake-pdf", "test.pdf")
 
     assert len(result) == 1
@@ -140,7 +168,8 @@ def test_chunks_figure_multiline_description_preserved():
     fake_response = MagicMock()
     fake_response.chunks = [_make_chunk("figure", markdown)]
     parser = DocumentParser(vision_agent_api_key="test-key")
-    with patch.object(parser._ade_client, "parse", return_value=fake_response):
+    with patch.object(parser._ade_client, "parse", return_value=fake_response), \
+         _mock_pymupdf_open():
         result = parser.parse(b"fake-pdf", "test.pdf")
 
     assert len(result) == 1
@@ -149,13 +178,28 @@ def test_chunks_figure_multiline_description_preserved():
     assert "y-axis" in result[0].text
 
 
+def test_chunks_figure_extracts_image():
+    """Figure chunks extract a base64 PNG image from the PDF page."""
+    fake_response = MagicMock()
+    fake_response.chunks = [_make_chunk("figure", "<::chart::>")]
+    parser = DocumentParser(vision_agent_api_key="test-key")
+    with patch.object(parser._ade_client, "parse", return_value=fake_response), \
+         _mock_pymupdf_open():
+        result = parser.parse(b"fake-pdf", "test.pdf")
+
+    assert len(result) == 1
+    assert result[0].image_base64 is not None
+    assert len(result[0].image_base64) > 0
+
+
 def test_chunks_strip_anchor_prefix():
     """ADE prepends <a id='...'></a> to every chunk's markdown."""
     markdown = "<a id='abc-123'></a>\n\n<::342\n: figure::>"
     fake_response = MagicMock()
     fake_response.chunks = [_make_chunk("figure", markdown)]
     parser = DocumentParser(vision_agent_api_key="test-key")
-    with patch.object(parser._ade_client, "parse", return_value=fake_response):
+    with patch.object(parser._ade_client, "parse", return_value=fake_response), \
+         _mock_pymupdf_open():
         result = parser.parse(b"fake-pdf", "test.pdf")
 
     assert len(result) == 1
@@ -169,11 +213,25 @@ def test_chunks_table_identified():
         _make_chunk("table", '<table id="t1"><tr><td>A</td></tr></table>'),
     ]
     parser = DocumentParser(vision_agent_api_key="test-key")
-    with patch.object(parser._ade_client, "parse", return_value=fake_response):
+    with patch.object(parser._ade_client, "parse", return_value=fake_response), \
+         _mock_pymupdf_open():
         result = parser.parse(b"fake-pdf", "test.pdf")
 
     assert len(result) == 1
     assert result[0].style == ParagraphStyle.TABLE
+
+
+def test_chunks_table_has_no_image():
+    fake_response = MagicMock()
+    fake_response.chunks = [
+        _make_chunk("table", '<table id="t1"><tr><td>A</td></tr></table>'),
+    ]
+    parser = DocumentParser(vision_agent_api_key="test-key")
+    with patch.object(parser._ade_client, "parse", return_value=fake_response), \
+         _mock_pymupdf_open():
+        result = parser.parse(b"fake-pdf", "test.pdf")
+
+    assert result[0].image_base64 is None
 
 
 def test_chunks_skip_marginalia():
@@ -183,7 +241,8 @@ def test_chunks_skip_marginalia():
         _make_chunk("text", "Real content."),
     ]
     parser = DocumentParser(vision_agent_api_key="test-key")
-    with patch.object(parser._ade_client, "parse", return_value=fake_response):
+    with patch.object(parser._ade_client, "parse", return_value=fake_response), \
+         _mock_pymupdf_open():
         result = parser.parse(b"fake-pdf", "test.pdf")
 
     assert len(result) == 1
@@ -197,7 +256,8 @@ def test_chunks_preserve_headings_in_text():
         _make_chunk("text", "## Section Heading"),
     ]
     parser = DocumentParser(vision_agent_api_key="test-key")
-    with patch.object(parser._ade_client, "parse", return_value=fake_response):
+    with patch.object(parser._ade_client, "parse", return_value=fake_response), \
+         _mock_pymupdf_open():
         result = parser.parse(b"fake-pdf", "test.pdf")
 
     assert len(result) == 1
@@ -211,7 +271,8 @@ def test_chunks_logo_maps_to_figure():
         _make_chunk("logo", "<::company logo::>"),
     ]
     parser = DocumentParser(vision_agent_api_key="test-key")
-    with patch.object(parser._ade_client, "parse", return_value=fake_response):
+    with patch.object(parser._ade_client, "parse", return_value=fake_response), \
+         _mock_pymupdf_open():
         result = parser.parse(b"fake-pdf", "test.pdf")
 
     assert len(result) == 1
@@ -226,7 +287,8 @@ def test_chunks_skip_empty_markdown():
         _make_chunk("text", "Actual text."),
     ]
     parser = DocumentParser(vision_agent_api_key="test-key")
-    with patch.object(parser._ade_client, "parse", return_value=fake_response):
+    with patch.object(parser._ade_client, "parse", return_value=fake_response), \
+         _mock_pymupdf_open():
         result = parser.parse(b"fake-pdf", "test.pdf")
 
     assert len(result) == 1

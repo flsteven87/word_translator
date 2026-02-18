@@ -161,7 +161,10 @@ async def test_figure_and_table_paragraphs_skip_translation(service):
 
     parsed = [
         ParsedParagraph(text="Normal text.", style=ParagraphStyle.NORMAL),
-        ParsedParagraph(text="<::chart::>", style=ParagraphStyle.FIGURE),
+        ParsedParagraph(
+            text="<::chart::>", style=ParagraphStyle.FIGURE,
+            image_base64="iVBORw0KGgo=",
+        ),
         ParsedParagraph(text="<table><tr><td>X</td></tr></table>", style=ParagraphStyle.TABLE),
         ParsedParagraph(text="More text.", style=ParagraphStyle.NORMAL),
     ]
@@ -183,6 +186,7 @@ async def test_figure_and_table_paragraphs_skip_translation(service):
     assert result.paragraphs[0].translated == "普通文本。"
     assert result.paragraphs[1].style == ParagraphStyle.FIGURE
     assert result.paragraphs[1].translated == ""
+    assert result.paragraphs[1].image == "iVBORw0KGgo="
     assert result.paragraphs[2].style == ParagraphStyle.TABLE
     assert result.paragraphs[2].translated == ""
     assert result.paragraphs[3].translated == "更多文本。"

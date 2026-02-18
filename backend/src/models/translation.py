@@ -20,6 +20,7 @@ class TranslatedParagraph(BaseModel):
     original: str
     translated: str
     style: ParagraphStyle = ParagraphStyle.NORMAL
+    image: str | None = None
 
 
 class TranslationResult(BaseModel):

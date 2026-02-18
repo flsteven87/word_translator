@@ -15,6 +15,7 @@ export interface TranslatedParagraph {
   original: string
   translated: string
   style: ParagraphStyle
+  image: string | null
 }
 
 export interface TranslationResult {
