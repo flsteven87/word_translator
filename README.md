@@ -13,9 +13,9 @@ Upload Word (.docx) documents and get side-by-side Chinese-English translations.
 
 ```bash
 cd backend
-cp ../.env.example ../.env  # Add your OpenAI API key
+cp .env.example .env  # Add your OpenAI API key
 uv sync
-uv run uvicorn src.main:app --reload --port 8000
+uv run uvicorn src.main:app --reload --port 8888
 ```
 
 ### Frontend
@@ -26,4 +26,4 @@ npm install
 npm run dev
 ```
 
-Frontend runs at `http://localhost:5173`, backend at `http://localhost:8000`.
+Frontend runs at `http://localhost:2321`, backend at `http://localhost:8888`.

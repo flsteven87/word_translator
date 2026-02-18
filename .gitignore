@@ -12,6 +12,7 @@ frontend/dist/
 # Environment
 .env
 .env.local
+.env.zeabur
 
 # IDE
 .vscode/
