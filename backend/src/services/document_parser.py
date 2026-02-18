@@ -36,9 +36,13 @@ _CODE_FENCE = re.compile(r"^`{3,}")
 _TABLE_ROW = re.compile(r"^\|.+\|$")
 _LIST_ITEM = re.compile(r"^(?:[-*+]|\d+\.)\s+(.+)$")
 _INLINE_MARKERS = re.compile(r"\*{1,3}(.+?)\*{1,3}")
+_HTML_ANCHOR = re.compile(r"^<a\s+id=['\"].*?['\"]>\s*</a>$")
+_HTML_COMMENT = re.compile(r"^<!--.*?-->$")
+_HTML_TAGS = re.compile(r"</?(?:sup|sub|em|strong|span|a|i|b)[^>]*>")
 
 
 def _strip_inline_markers(text: str) -> str:
+    text = _HTML_TAGS.sub("", text)
     return _INLINE_MARKERS.sub(r"\1", text).strip()
 
 
@@ -138,7 +142,12 @@ def _parse_markdown(md_text: str) -> list[ParsedParagraph]:
             flush_buffer()
             continue
 
-        if _IMAGE_PATTERN.match(stripped) or _TABLE_ROW.match(stripped):
+        if (
+            _HTML_ANCHOR.match(stripped)
+            or _HTML_COMMENT.match(stripped)
+            or _IMAGE_PATTERN.match(stripped)
+            or _TABLE_ROW.match(stripped)
+        ):
             continue
 
         heading_match = _HEADING_PATTERN.match(stripped)
