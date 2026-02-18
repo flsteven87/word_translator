@@ -13,7 +13,10 @@ from src.services.translation_service import TranslationService
 @pytest.fixture
 def service(tmp_path):
     return TranslationService(
-        storage_dir=tmp_path, openai_api_key="test-key", openai_model="gpt-4o-mini"
+        storage_dir=tmp_path,
+        openai_api_key="test-key",
+        openai_model="gpt-4o-mini",
+        vision_agent_api_key="test-key",
     )
 
 

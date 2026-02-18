@@ -1,3 +1,4 @@
+import logging
 import re
 from dataclasses import dataclass
 from io import BytesIO
@@ -5,9 +6,12 @@ from io import BytesIO
 import pymupdf
 import pymupdf4llm
 from docx import Document
+from landingai_ade import LandingAIADE
 
 from src.core.exceptions import InputValidationError
 from src.models.translation import ParagraphStyle
+
+logger = logging.getLogger(__name__)
 
 _DOCX_STYLE_MAP: dict[str, ParagraphStyle] = {
     "Title": ParagraphStyle.TITLE,
@@ -45,6 +49,12 @@ class ParsedParagraph:
 
 
 class DocumentParser:
+    def __init__(self, vision_agent_api_key: str) -> None:
+        self._ade_client = LandingAIADE(
+            apikey=vision_agent_api_key,
+            environment="production",
+        )
+
     def parse(self, file_content: bytes, filename: str) -> list[ParsedParagraph]:
         ext = filename.rsplit(".", maxsplit=1)[-1].lower() if "." in filename else ""
         if ext == "pdf":

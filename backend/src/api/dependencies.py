@@ -12,4 +12,5 @@ def get_translation_service() -> TranslationService:
         storage_dir=Path(settings.storage_dir),
         openai_api_key=settings.openai_api_key,
         openai_model=settings.openai_model,
+        vision_agent_api_key=settings.vision_agent_api_key,
     )

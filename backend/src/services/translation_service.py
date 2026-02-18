@@ -15,9 +15,13 @@ from src.services.word_exporter import WordExporter
 
 class TranslationService:
     def __init__(
-        self, storage_dir: Path, openai_api_key: str, openai_model: str
+        self,
+        storage_dir: Path,
+        openai_api_key: str,
+        openai_model: str,
+        vision_agent_api_key: str,
     ) -> None:
-        self._parser = DocumentParser()
+        self._parser = DocumentParser(vision_agent_api_key)
         self._store = TranslationStore(storage_dir=storage_dir)
         self._exporter = WordExporter()
         client = AsyncOpenAI(api_key=openai_api_key)
