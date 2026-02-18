@@ -4,8 +4,6 @@ from abc import ABC, abstractmethod
 
 from openai import AsyncOpenAI
 
-from src.core.exceptions import AppException
-
 SYSTEM_PROMPT = (
     "You are a professional English to Traditional Chinese (繁體中文) translator. "
     "Translate each numbered paragraph into Traditional Chinese accurately and naturally. "
@@ -50,7 +48,28 @@ class BatchTranslationStrategy(TranslationStrategy):
             ],
         )
         content = response.choices[0].message.content or ""
-        return self._parse_numbered_response(content, len(batch))
+        result = self._parse_numbered_response(content, len(batch))
+
+        missing_indices = [i for i, t in enumerate(result) if not t]
+        if missing_indices:
+            retried = await asyncio.gather(
+                *[self._translate_single(batch[i]) for i in missing_indices]
+            )
+            for idx, text in zip(missing_indices, retried):
+                result[idx] = text
+
+        return result
+
+    async def _translate_single(self, text: str) -> str:
+        response = await self._client.chat.completions.create(
+            model=self._model,
+            messages=[
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": f"[1] {text}"},
+            ],
+        )
+        content = (response.choices[0].message.content or "").strip()
+        return re.sub(r"^\[1\]\s*", "", content)
 
     @staticmethod
     def _parse_numbered_response(content: str, expected_count: int) -> list[str]:
@@ -63,10 +82,4 @@ class BatchTranslationStrategy(TranslationStrategy):
             text = parts[i + 1].strip()
             translations[num] = text
             i += 2
-        result = [translations.get(n, "") for n in range(1, expected_count + 1)]
-        missing = [n for n in range(1, expected_count + 1) if n not in translations]
-        if missing:
-            raise AppException(
-                f"Translation response missing paragraph(s): {missing}"
-            )
-        return result
+        return [translations.get(n, "") for n in range(1, expected_count + 1)]
