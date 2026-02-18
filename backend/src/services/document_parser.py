@@ -37,6 +37,7 @@ _TABLE_ROW = re.compile(r"^\|.+\|$")
 _LIST_ITEM = re.compile(r"^(?:[-*+]|\d+\.)\s+(.+)$")
 _INLINE_MARKERS = re.compile(r"\*{1,3}(.+?)\*{1,3}")
 _HTML_ANCHOR = re.compile(r"^<a\s+id=['\"].*?['\"]>\s*</a>$")
+_HTML_ANCHOR_PREFIX = re.compile(r"^<a\s+id=['\"].*?['\"]>\s*</a>\s*")
 _HTML_COMMENT = re.compile(r"^<!--.*?-->$")
 _HTML_TAGS = re.compile(r"</?(?:sup|sub|em|strong|span|a|i|b)[^>]*>")
 
@@ -45,10 +46,10 @@ _HTML_TABLE_OPEN = re.compile(r"<table[\s>]", re.IGNORECASE)
 _HTML_TABLE_CLOSE = re.compile(r"</table>", re.IGNORECASE)
 
 _CHUNK_FIGURE_TYPES = frozenset({
-    "chunkFigure", "chunkLogo", "chunkCard", "chunkAttestation", "chunkScanCode",
+    "figure", "logo", "card", "attestation", "scanCode",
 })
 _CHUNK_SKIP_TYPES = frozenset({
-    "chunkMarginalia", "chunkPageHeader", "chunkPageFooter", "chunkPageNumber",
+    "marginalia", "pageHeader", "pageFooter", "pageNumber",
 })
 
 
@@ -135,6 +136,7 @@ def _parse_ade_chunks(chunks: list) -> list[ParsedParagraph]:
     results: list[ParsedParagraph] = []
     for chunk in chunks:
         markdown = chunk.markdown.strip() if chunk.markdown else ""
+        markdown = _HTML_ANCHOR_PREFIX.sub("", markdown).strip()
         if not markdown:
             continue
         chunk_type = chunk.type
@@ -142,7 +144,7 @@ def _parse_ade_chunks(chunks: list) -> list[ParsedParagraph]:
             continue
         if chunk_type in _CHUNK_FIGURE_TYPES:
             results.append(ParsedParagraph(text=markdown, style=ParagraphStyle.FIGURE))
-        elif chunk_type == "chunkTable":
+        elif chunk_type == "table":
             results.append(ParsedParagraph(text=markdown, style=ParagraphStyle.TABLE))
         else:
             results.extend(_parse_markdown(markdown))

@@ -54,8 +54,8 @@ def test_parse_extracts_headings():
 def test_parse_pdf_uses_ade_when_available():
     fake_response = MagicMock()
     fake_response.chunks = [
-        _make_chunk("chunkTitle", "# Title"),
-        _make_chunk("chunkText", "First paragraph.\n\nSecond paragraph."),
+        _make_chunk("text", "# Title"),
+        _make_chunk("text", "First paragraph.\n\nSecond paragraph."),
     ]
 
     parser = DocumentParser(vision_agent_api_key="test-key")
@@ -118,7 +118,7 @@ def test_parse_pdf_falls_back_when_ade_returns_empty_chunks():
 def test_chunks_figure_identified():
     fake_response = MagicMock()
     fake_response.chunks = [
-        _make_chunk("chunkFigure", "<::bar chart::>Y-axis label"),
+        _make_chunk("figure", "<::bar chart::>Y-axis label"),
     ]
     parser = DocumentParser(vision_agent_api_key="test-key")
     with patch.object(parser._ade_client, "parse", return_value=fake_response):
@@ -129,10 +129,44 @@ def test_chunks_figure_identified():
     assert "<::bar chart::>" in result[0].text
 
 
+def test_chunks_figure_multiline_description_preserved():
+    """ADE returns figure descriptions as multi-line markdown in a single chunk."""
+    markdown = (
+        "<::scatter chart: \n"
+        "- x-axis: \"Low-stress mechanical properties\"\n"
+        "- y-axis: \"Experimental values\" ranging from -10 to 80\n"
+        "- Data series: Multiple samples::>"
+    )
+    fake_response = MagicMock()
+    fake_response.chunks = [_make_chunk("figure", markdown)]
+    parser = DocumentParser(vision_agent_api_key="test-key")
+    with patch.object(parser._ade_client, "parse", return_value=fake_response):
+        result = parser.parse(b"fake-pdf", "test.pdf")
+
+    assert len(result) == 1
+    assert result[0].style == ParagraphStyle.FIGURE
+    assert "x-axis" in result[0].text
+    assert "y-axis" in result[0].text
+
+
+def test_chunks_strip_anchor_prefix():
+    """ADE prepends <a id='...'></a> to every chunk's markdown."""
+    markdown = "<a id='abc-123'></a>\n\n<::342\n: figure::>"
+    fake_response = MagicMock()
+    fake_response.chunks = [_make_chunk("figure", markdown)]
+    parser = DocumentParser(vision_agent_api_key="test-key")
+    with patch.object(parser._ade_client, "parse", return_value=fake_response):
+        result = parser.parse(b"fake-pdf", "test.pdf")
+
+    assert len(result) == 1
+    assert result[0].style == ParagraphStyle.FIGURE
+    assert "<a id=" not in result[0].text
+
+
 def test_chunks_table_identified():
     fake_response = MagicMock()
     fake_response.chunks = [
-        _make_chunk("chunkTable", '<table id="t1"><tr><td>A</td></tr></table>'),
+        _make_chunk("table", '<table id="t1"><tr><td>A</td></tr></table>'),
     ]
     parser = DocumentParser(vision_agent_api_key="test-key")
     with patch.object(parser._ade_client, "parse", return_value=fake_response):
@@ -145,8 +179,8 @@ def test_chunks_table_identified():
 def test_chunks_skip_marginalia():
     fake_response = MagicMock()
     fake_response.chunks = [
-        _make_chunk("chunkMarginalia", "Page note"),
-        _make_chunk("chunkText", "Real content."),
+        _make_chunk("marginalia", "Page note"),
+        _make_chunk("text", "Real content."),
     ]
     parser = DocumentParser(vision_agent_api_key="test-key")
     with patch.object(parser._ade_client, "parse", return_value=fake_response):
@@ -160,7 +194,7 @@ def test_chunks_skip_marginalia():
 def test_chunks_preserve_headings_in_text():
     fake_response = MagicMock()
     fake_response.chunks = [
-        _make_chunk("chunkTitle", "## Section Heading"),
+        _make_chunk("text", "## Section Heading"),
     ]
     parser = DocumentParser(vision_agent_api_key="test-key")
     with patch.object(parser._ade_client, "parse", return_value=fake_response):
@@ -174,7 +208,7 @@ def test_chunks_preserve_headings_in_text():
 def test_chunks_logo_maps_to_figure():
     fake_response = MagicMock()
     fake_response.chunks = [
-        _make_chunk("chunkLogo", "<::company logo::>"),
+        _make_chunk("logo", "<::company logo::>"),
     ]
     parser = DocumentParser(vision_agent_api_key="test-key")
     with patch.object(parser._ade_client, "parse", return_value=fake_response):
@@ -187,9 +221,9 @@ def test_chunks_logo_maps_to_figure():
 def test_chunks_skip_empty_markdown():
     fake_response = MagicMock()
     fake_response.chunks = [
-        _make_chunk("chunkText", ""),
-        _make_chunk("chunkText", "   "),
-        _make_chunk("chunkText", "Actual text."),
+        _make_chunk("text", ""),
+        _make_chunk("text", "   "),
+        _make_chunk("text", "Actual text."),
     ]
     parser = DocumentParser(vision_agent_api_key="test-key")
     with patch.object(parser._ade_client, "parse", return_value=fake_response):
