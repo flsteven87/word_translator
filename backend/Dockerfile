@@ -17,7 +17,7 @@ COPY src/ src/
 
 RUN uv sync --frozen --no-dev || uv sync --no-dev
 
-RUN mkdir -p /app/data/translations && \
+RUN mkdir -p /app/data/translations/uploads && \
     adduser --disabled-password --gecos "" --uid 1000 appuser && \
     chown -R appuser:appuser /app
 USER appuser

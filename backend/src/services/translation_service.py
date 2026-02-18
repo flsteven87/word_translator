@@ -26,7 +26,7 @@ class TranslationService:
     async def translate_document(
         self, file_content: bytes, filename: str
     ) -> TranslationResult:
-        parsed = self._parser.parse(file_content)
+        parsed = self._parser.parse(file_content, filename)
         texts = [p.text for p in parsed]
         translated = await self._strategy.translate(texts)
         result = TranslationResult(
@@ -39,6 +39,7 @@ class TranslationService:
             ],
         )
         self._store.save(result)
+        self._store.save_upload(str(result.id), filename, file_content)
         return result
 
     def get_translation(self, translation_id: str) -> TranslationResult:
