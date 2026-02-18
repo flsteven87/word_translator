@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 from openai import AsyncOpenAI
@@ -7,7 +8,7 @@ from src.models.translation import (
     TranslationResult,
     TranslationSummary,
 )
-from src.services.chunker import merge_paragraphs, unmerge_translation
+from src.services.chunker import group_paragraphs
 from src.services.document_parser import DocumentParser, ParsedParagraph
 from src.services.translation_store import TranslationStore
 from src.services.translation_strategy import BatchTranslationStrategy
@@ -57,20 +58,24 @@ class TranslationService:
     async def _translate_parsed(
         self, parsed: list[ParsedParagraph]
     ) -> list[TranslatedParagraph]:
-        chunks = merge_paragraphs(parsed)
-        translated_chunks = await self._strategy.translate(
-            [c.text for c in chunks]
-        )
-        paragraphs: list[TranslatedParagraph] = []
-        for chunk, translated_text in zip(chunks, translated_chunks):
-            parts = unmerge_translation(translated_text, len(chunk.members))
-            for member, part in zip(chunk.members, parts):
-                paragraphs.append(
-                    TranslatedParagraph(
-                        original=member.text, translated=part, style=member.style
-                    )
+        groups = group_paragraphs(parsed)
+
+        async def _translate_group(
+            group: list[ParsedParagraph],
+        ) -> list[TranslatedParagraph]:
+            texts = [p.text for p in group]
+            translated = await self._strategy.translate(texts)
+            return [
+                TranslatedParagraph(
+                    original=member.text, translated=trans, style=member.style
                 )
-        return paragraphs
+                for member, trans in zip(group, translated)
+            ]
+
+        results = await asyncio.gather(
+            *[_translate_group(g) for g in groups]
+        )
+        return [p for group_result in results for p in group_result]
 
     def get_translation(self, translation_id: str) -> TranslationResult:
         return self._store.load(translation_id)
