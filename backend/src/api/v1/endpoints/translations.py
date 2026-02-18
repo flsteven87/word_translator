@@ -1,5 +1,6 @@
 from pathlib import PurePosixPath
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, UploadFile
 from fastapi.responses import Response
@@ -66,11 +67,11 @@ def download_translation(
     service: TranslationServiceDep,
 ) -> Response:
     result = service.get_translation(translation_id)
-    docx_bytes = service.export_translation(result)
+    docx_bytes, filename = service.export_translation(result)
     return Response(
         content=docx_bytes,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={
-            "Content-Disposition": f'attachment; filename="translated_{result.filename}"'
+            "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename)}"
         },
     )

@@ -37,6 +37,13 @@ class TranslationStore:
         path = self._uploads_dir / f"{translation_id}.{ext}"
         path.write_bytes(content)
 
+    def load_upload(self, translation_id: str) -> tuple[Path, str] | None:
+        matches = list(self._uploads_dir.glob(f"{translation_id}.*"))
+        if not matches:
+            return None
+        path = matches[0]
+        return path, path.suffix.lstrip(".")
+
     def delete(self, translation_id: str) -> None:
         path = self._storage_dir / f"{translation_id}.json"
         if not path.exists():

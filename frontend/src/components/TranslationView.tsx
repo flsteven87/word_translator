@@ -1,5 +1,6 @@
 import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { FontSizeControl } from "@/components/FontSizeControl"
 import { getDownloadUrl } from "@/lib/api"
 import type { TranslationResult, ParagraphStyle } from "@/lib/api"
@@ -45,20 +46,22 @@ export function TranslationView({ result }: Props) {
           <h1 className="text-2xl font-semibold tracking-tight">
             {result.filename}
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
             {result.paragraphs.length} paragraphs &middot;{" "}
             {new Date(result.created_at).toLocaleDateString()}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="ghost" size="icon-xs" asChild>
+                  <a href={getDownloadUrl(result.id)} download>
+                    <Download />
+                  </a>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Download Chinese Word file</TooltipContent>
+            </Tooltip>
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <FontSizeControl />
-          <Button variant="outline" asChild>
-            <a href={getDownloadUrl(result.id)} download>
-              <Download />
-              Download
-            </a>
-          </Button>
-        </div>
+        <FontSizeControl />
       </div>
 
       <div className="mt-8">

@@ -2,31 +2,87 @@ from io import BytesIO
 
 from docx import Document
 
-from src.models.translation import TranslatedParagraph, TranslationResult
+from src.models.translation import (
+    ParagraphStyle,
+    TranslatedParagraph,
+    TranslationResult,
+)
 from src.services.word_exporter import WordExporter
 
 
-def test_export_creates_valid_docx():
-    result = TranslationResult(
+def _make_result(**kwargs):
+    defaults = dict(
         filename="test.docx",
         paragraphs=[
             TranslatedParagraph(original="Hello", translated="你好"),
             TranslatedParagraph(original="World", translated="世界"),
         ],
     )
+    defaults.update(kwargs)
+    return TranslationResult(**defaults)
+
+
+def _make_docx(paragraphs: list[str]) -> bytes:
+    doc = Document()
+    for text in paragraphs:
+        doc.add_paragraph(text)
+    buf = BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def test_export_from_scratch_chinese_only():
+    result = _make_result()
     exporter = WordExporter()
     docx_bytes = exporter.export(result)
 
     doc = Document(BytesIO(docx_bytes))
-    tables = doc.tables
-    assert len(tables) == 1
+    texts = [p.text for p in doc.paragraphs if p.text]
+    assert texts == ["你好", "世界"]
 
-    table = tables[0]
-    # Header row + 2 data rows
-    assert len(table.rows) == 3
-    assert table.rows[0].cells[0].text == "English (Original)"
-    assert table.rows[0].cells[1].text == "中文 (Translation)"
-    assert table.rows[1].cells[0].text == "Hello"
-    assert table.rows[1].cells[1].text == "你好"
-    assert table.rows[2].cells[0].text == "World"
-    assert table.rows[2].cells[1].text == "世界"
+
+def test_export_from_scratch_applies_styles():
+    result = _make_result(
+        paragraphs=[
+            TranslatedParagraph(
+                original="Title", translated="標題", style=ParagraphStyle.TITLE
+            ),
+            TranslatedParagraph(
+                original="Body", translated="內文", style=ParagraphStyle.NORMAL
+            ),
+        ],
+    )
+    exporter = WordExporter()
+    docx_bytes = exporter.export(result)
+
+    doc = Document(BytesIO(docx_bytes))
+    non_empty = [p for p in doc.paragraphs if p.text]
+    assert non_empty[0].style.name == "Title"
+    assert non_empty[1].style.name == "Normal"
+
+
+def test_export_from_docx_preserves_formatting():
+    original_docx = _make_docx(["Hello", "World"])
+    result = _make_result()
+    exporter = WordExporter()
+    docx_bytes = exporter.export(result, original_docx=original_docx)
+
+    doc = Document(BytesIO(docx_bytes))
+    texts = [p.text for p in doc.paragraphs if p.text]
+    assert texts == ["你好", "世界"]
+
+
+def test_export_from_docx_unmatched_paragraphs_unchanged():
+    original_docx = _make_docx(["Hello", "Extra paragraph"])
+    result = _make_result(
+        paragraphs=[
+            TranslatedParagraph(original="Hello", translated="你好"),
+        ],
+    )
+    exporter = WordExporter()
+    docx_bytes = exporter.export(result, original_docx=original_docx)
+
+    doc = Document(BytesIO(docx_bytes))
+    texts = [p.text for p in doc.paragraphs if p.text]
+    assert "你好" in texts
+    assert "Extra paragraph" in texts

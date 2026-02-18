@@ -79,6 +79,7 @@ def test_export_translation(service):
         )
 
     loaded = service.get_translation(str(result.id))
-    exported = service.export_translation(loaded)
-    assert isinstance(exported, bytes)
-    assert len(exported) > 0
+    docx_bytes, filename = service.export_translation(loaded)
+    assert isinstance(docx_bytes, bytes)
+    assert len(docx_bytes) > 0
+    assert filename == "test_中文.docx"
