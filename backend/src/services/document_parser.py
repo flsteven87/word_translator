@@ -75,17 +75,32 @@ class DocumentParser:
         return results
 
     def _parse_pdf(self, file_content: bytes) -> list[ParsedParagraph]:
+        try:
+            return self._parse_pdf_with_ade(file_content)
+        except Exception as exc:
+            logger.warning("ADE parsing failed, falling back to pymupdf4llm: %s", exc)
+            return self._parse_pdf_with_pymupdf(file_content)
+
+    def _parse_pdf_with_ade(self, file_content: bytes) -> list[ParsedParagraph]:
+        response = self._ade_client.parse(
+            document=file_content,
+            model="dpt-2-latest",
+        )
+        results = _parse_markdown(response.markdown)
+        if not results:
+            raise ValueError("ADE returned empty markdown")
+        return results
+
+    def _parse_pdf_with_pymupdf(self, file_content: bytes) -> list[ParsedParagraph]:
         with pymupdf.open(stream=file_content, filetype="pdf") as doc:
             if doc.page_count == 0:
                 raise InputValidationError("PDF file contains no pages")
-
             hdr_info = pymupdf4llm.IdentifyHeaders(doc, max_levels=4)
             md_text = pymupdf4llm.to_markdown(
                 doc,
                 hdr_info=hdr_info,
                 margins=(0, 50, 0, 50),
             )
-
         results = _parse_markdown(md_text)
         if not results:
             raise InputValidationError(
