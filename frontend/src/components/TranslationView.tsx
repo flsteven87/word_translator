@@ -16,6 +16,17 @@ const STYLE_CLASSES: Record<ParagraphStyle, string> = {
   normal: "text-sm",
 }
 
+function isStructural(style: ParagraphStyle): boolean {
+  return style !== "normal"
+}
+
+function getTopSpacing(style: ParagraphStyle, index: number, prevIsNormal: boolean): string {
+  if (!isStructural(style) || index === 0) return ""
+  if (style === "title") return "pt-8"
+  if (prevIsNormal) return "pt-6"
+  return "pt-4"
+}
+
 export function TranslationView({ result }: Props) {
   return (
     <div>
@@ -38,25 +49,43 @@ export function TranslationView({ result }: Props) {
       </div>
 
       <div className="mt-8">
-        <div className="grid grid-cols-2 gap-px rounded-lg border bg-border overflow-hidden">
-          <div className="bg-muted px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Original
-          </div>
-          <div className="bg-muted px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
-            Translation
-          </div>
+        <div className="grid grid-cols-2 gap-x-8 mb-4 px-1">
+          <p className="text-xs font-medium text-muted-foreground">English</p>
+          <p className="text-xs font-medium text-muted-foreground">中文</p>
+        </div>
+
+        <div>
           {result.paragraphs.map((p, i) => {
             const styleClass = STYLE_CLASSES[p.style]
-            return (
-              <div key={i} className="contents">
+            const structural = isStructural(p.style)
+            const prevIsNormal = i > 0 && !isStructural(result.paragraphs[i - 1].style)
+            const topSpacing = getTopSpacing(p.style, i, prevIsNormal)
+
+            if (structural) {
+              return (
                 <div
-                  className={`bg-background px-4 py-3 leading-relaxed border-b border-border last:border-b-0 ${styleClass}`}
+                  key={i}
+                  className={`grid grid-cols-2 gap-x-8 border-b border-border/60 ${topSpacing}`}
                 >
+                  <div className={`px-1 pb-2 leading-relaxed ${styleClass}`}>
+                    {p.original}
+                  </div>
+                  <div className={`px-1 pb-2 leading-relaxed ${styleClass}`}>
+                    {p.translated}
+                  </div>
+                </div>
+              )
+            }
+
+            return (
+              <div
+                key={i}
+                className="grid grid-cols-2 gap-x-8 rounded-md transition-colors hover:bg-muted/40"
+              >
+                <div className={`px-1 py-2 leading-relaxed text-muted-foreground ${styleClass}`}>
                   {p.original}
                 </div>
-                <div
-                  className={`bg-background px-4 py-3 leading-relaxed border-b border-border last:border-b-0 ${styleClass}`}
-                >
+                <div className={`px-1 py-2 leading-relaxed ${styleClass}`}>
                   {p.translated}
                 </div>
               </div>

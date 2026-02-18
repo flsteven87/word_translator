@@ -1,6 +1,17 @@
+import { useState } from "react"
 import { useLocation, useNavigate, useParams, Link } from "react-router-dom"
 import { FileText, Trash2 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useTranslations } from "@/hooks/queries/use-translations"
 import { useDeleteTranslation } from "@/hooks/queries/use-delete-translation"
 import {
@@ -19,13 +30,16 @@ export function HistoryList() {
   const location = useLocation()
   const navigate = useNavigate()
   const { id: activeId } = useParams<{ id: string }>()
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; filename: string } | null>(null)
 
-  function handleDelete(id: string, filename: string) {
-    if (!confirm(`Delete "${filename}"?`)) return
+  function handleConfirmDelete() {
+    if (!deleteTarget) return
+    const { id } = deleteTarget
     deleteMutation.mutate(id, {
       onSuccess: () => {
         if (activeId === id) navigate("/")
       },
+      onSettled: () => setDeleteTarget(null),
     })
   }
 
@@ -61,36 +75,59 @@ export function HistoryList() {
   }
 
   return (
-    <SidebarGroup>
-      <SidebarGroupLabel>History</SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu>
-          {translations.map((t) => (
-            <SidebarMenuItem key={t.id}>
-              <SidebarMenuButton
-                asChild
-                isActive={location.pathname === `/t/${t.id}`}
-              >
-                <Link to={`/t/${t.id}`}>
-                  <FileText />
-                  <div className="flex-1 min-w-0">
-                    <span className="truncate text-sm">{t.filename}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {t.paragraph_count} paragraphs
-                    </span>
-                  </div>
-                </Link>
-              </SidebarMenuButton>
-              <SidebarMenuAction
-                onClick={() => handleDelete(t.id, t.filename)}
-                showOnHover
-              >
-                <Trash2 />
-              </SidebarMenuAction>
-            </SidebarMenuItem>
-          ))}
-        </SidebarMenu>
-      </SidebarGroupContent>
-    </SidebarGroup>
+    <>
+      <SidebarGroup>
+        <SidebarGroupLabel>History</SidebarGroupLabel>
+        <SidebarGroupContent>
+          <SidebarMenu>
+            {translations.map((t) => (
+              <SidebarMenuItem key={t.id}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location.pathname === `/t/${t.id}`}
+                >
+                  <Link to={`/t/${t.id}`}>
+                    <FileText />
+                    <div className="flex-1 min-w-0">
+                      <span className="truncate text-sm">{t.filename}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {t.paragraph_count} paragraphs
+                      </span>
+                    </div>
+                  </Link>
+                </SidebarMenuButton>
+                <SidebarMenuAction
+                  onClick={() => setDeleteTarget({ id: t.id, filename: t.filename })}
+                  showOnHover
+                >
+                  <Trash2 />
+                </SidebarMenuAction>
+              </SidebarMenuItem>
+            ))}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      </SidebarGroup>
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete translation?</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{deleteTarget?.filename}&rdquo; will be permanently deleted. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   )
 }
