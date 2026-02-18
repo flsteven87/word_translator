@@ -16,8 +16,8 @@ FROM nginx:alpine
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/nginx.conf
 
-# Startup script: replace port 80 with Zeabur's $PORT at runtime
-RUN printf '#!/bin/sh\nset -e\nPORT="${PORT:-8080}"\nsed -i "s/listen 80;/listen ${PORT};/" /etc/nginx/nginx.conf\nexec nginx -g "daemon off;"\n' > /start.sh && \
+# Startup script: substitute runtime env vars into nginx config
+RUN printf '#!/bin/sh\nset -e\nPORT="${PORT:-8080}"\nBACKEND_URL="${BACKEND_URL:-http://localhost:8000}"\nBACKEND_URL="${BACKEND_URL%%/}"\nsed -i "s/listen 80;/listen ${PORT};/" /etc/nginx/nginx.conf\nsed -i "s|__BACKEND_URL__|${BACKEND_URL}|g" /etc/nginx/nginx.conf\nexec nginx -g "daemon off;"\n' > /start.sh && \
     chmod +x /start.sh
 
 EXPOSE 8080
