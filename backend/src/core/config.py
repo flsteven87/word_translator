@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     openai_api_key: str
     openai_model: str = "gpt-4o-mini"
+    vision_agent_api_key: str
 
     cors_origins: str = "http://localhost:2321"
     storage_dir: str = "data/translations"
