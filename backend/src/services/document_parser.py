@@ -77,6 +77,8 @@ class DocumentParser:
     def _parse_pdf(self, file_content: bytes) -> list[ParsedParagraph]:
         try:
             return self._parse_pdf_with_ade(file_content)
+        except InputValidationError:
+            raise
         except Exception as exc:
             logger.warning("ADE parsing failed, falling back to pymupdf4llm: %s", exc)
             return self._parse_pdf_with_pymupdf(file_content)

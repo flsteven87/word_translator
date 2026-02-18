@@ -78,3 +78,25 @@ def test_parse_pdf_falls_back_to_pymupdf_on_ade_failure():
     assert len(result) == 2
     assert result[0].text == "Fallback Title"
     assert result[1].text == "Fallback body."
+
+
+def test_parse_pdf_falls_back_when_ade_returns_empty_markdown():
+    fake_response = MagicMock()
+    fake_response.markdown = ""
+
+    parser = DocumentParser(vision_agent_api_key="test-key")
+    with patch.object(parser._ade_client, "parse", return_value=fake_response), \
+         patch("src.services.document_parser.pymupdf4llm") as mock_pymupdf4llm, \
+         patch("src.services.document_parser.pymupdf") as mock_pymupdf:
+        mock_doc = MagicMock()
+        mock_doc.page_count = 1
+        mock_doc.__enter__ = MagicMock(return_value=mock_doc)
+        mock_doc.__exit__ = MagicMock(return_value=False)
+        mock_pymupdf.open.return_value = mock_doc
+        mock_pymupdf4llm.IdentifyHeaders.return_value = {}
+        mock_pymupdf4llm.to_markdown.return_value = "# Fallback"
+
+        result = parser.parse(b"fake-pdf-bytes", "test.pdf")
+
+    assert len(result) == 1
+    assert result[0].text == "Fallback"
