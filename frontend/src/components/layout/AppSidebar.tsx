@@ -1,10 +1,12 @@
 import { Link } from "react-router-dom"
 import { Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { FontSizeControl } from "@/components/FontSizeControl"
 import { HistoryList } from "@/components/HistoryList"
 import {
   Sidebar,
   SidebarContent,
+  SidebarFooter,
   SidebarHeader,
 } from "@/components/ui/sidebar"
 
@@ -28,6 +30,9 @@ export function AppSidebar() {
       <SidebarContent>
         <HistoryList />
       </SidebarContent>
+      <SidebarFooter className="px-4 py-3">
+        <FontSizeControl compact />
+      </SidebarFooter>
     </Sidebar>
   )
 }
