@@ -7,6 +7,7 @@ from src.models.translation import (
     TranslationResult,
     TranslationSummary,
 )
+from src.services.chunker import merge_paragraphs, unmerge_translation
 from src.services.document_parser import DocumentParser
 from src.services.translation_store import TranslationStore
 from src.services.translation_strategy import BatchTranslationStrategy
@@ -31,17 +32,22 @@ class TranslationService:
         self, file_content: bytes, filename: str
     ) -> TranslationResult:
         parsed = self._parser.parse(file_content, filename)
-        texts = [p.text for p in parsed]
-        translated = await self._strategy.translate(texts)
-        result = TranslationResult(
-            filename=filename,
-            paragraphs=[
-                TranslatedParagraph(
-                    original=p.text, translated=trans, style=p.style
-                )
-                for p, trans in zip(parsed, translated)
-            ],
+        chunks = merge_paragraphs(parsed)
+        translated_chunks = await self._strategy.translate(
+            [c.text for c in chunks]
         )
+
+        paragraphs: list[TranslatedParagraph] = []
+        for chunk, translated_text in zip(chunks, translated_chunks):
+            parts = unmerge_translation(translated_text, len(chunk.members))
+            for member, part in zip(chunk.members, parts):
+                paragraphs.append(
+                    TranslatedParagraph(
+                        original=member.text, translated=part, style=member.style
+                    )
+                )
+
+        result = TranslationResult(filename=filename, paragraphs=paragraphs)
         self._store.save(result)
         self._store.save_upload(str(result.id), filename, file_content)
         return result

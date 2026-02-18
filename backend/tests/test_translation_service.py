@@ -36,7 +36,7 @@ async def test_translate_document(service):
     with patch.object(
         service._strategy, "translate", new_callable=AsyncMock
     ) as mock_translate:
-        mock_translate.return_value = ["你好世界。", "早安。"]
+        mock_translate.return_value = ["你好世界。\n\n早安。"]
         result = await service.translate_document(docx_content, "test.docx")
 
     assert isinstance(result, TranslationResult)
@@ -44,6 +44,8 @@ async def test_translate_document(service):
     assert len(result.paragraphs) == 2
     assert result.paragraphs[0].original == "Hello world."
     assert result.paragraphs[0].translated == "你好世界。"
+    assert result.paragraphs[1].original == "Good morning."
+    assert result.paragraphs[1].translated == "早安。"
 
 
 @pytest.mark.asyncio
