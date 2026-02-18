@@ -16,9 +16,9 @@ export function AppSidebar() {
       <SidebarHeader className="px-4 py-4 space-y-4">
         <Link to="/" className="flex items-center gap-2">
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-bold">
-            W
+            D
           </div>
-          <span className="text-sm font-semibold">Word Translator</span>
+          <span className="text-sm font-semibold">DocDual</span>
         </Link>
         <Button asChild className="w-full" size="sm">
           <Link to="/">

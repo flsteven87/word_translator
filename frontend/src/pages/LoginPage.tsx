@@ -27,10 +27,10 @@ export default function LoginPage({ onAuthenticated }: Props) {
       <div className="w-full max-w-xs space-y-8">
         <div className="flex flex-col items-center gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground text-lg font-bold">
-            W
+            D
           </div>
           <h1 className="text-lg font-semibold tracking-tight">
-            Word Translator
+            DocDual
           </h1>
           <p className="text-sm text-muted-foreground">
             Enter access code to continue
