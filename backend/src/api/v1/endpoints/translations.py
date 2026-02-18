@@ -48,6 +48,14 @@ def get_translation(
     return service.get_translation(translation_id)
 
 
+@router.delete("/{translation_id}", status_code=204)
+def delete_translation(
+    translation_id: str,
+    service: TranslationServiceDep,
+) -> None:
+    service.delete_translation(translation_id)
+
+
 @router.get("/{translation_id}/download")
 def download_translation(
     translation_id: str,

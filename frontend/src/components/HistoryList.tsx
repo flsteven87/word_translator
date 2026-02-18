@@ -1,19 +1,33 @@
-import { useLocation, Link } from "react-router-dom"
-import { FileText } from "lucide-react"
+import { useLocation, useNavigate, useParams, Link } from "react-router-dom"
+import { FileText, Trash2 } from "lucide-react"
 import { Skeleton } from "@/components/ui/skeleton"
 import { useTranslations } from "@/hooks/queries/use-translations"
+import { useDeleteTranslation } from "@/hooks/queries/use-delete-translation"
 import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 
 export function HistoryList() {
   const { data: translations, isLoading } = useTranslations()
+  const deleteMutation = useDeleteTranslation()
   const location = useLocation()
+  const navigate = useNavigate()
+  const { id: activeId } = useParams<{ id: string }>()
+
+  function handleDelete(id: string, filename: string) {
+    if (!confirm(`Delete "${filename}"?`)) return
+    deleteMutation.mutate(id, {
+      onSuccess: () => {
+        if (activeId === id) navigate("/")
+      },
+    })
+  }
 
   if (isLoading) {
     return (
@@ -67,6 +81,12 @@ export function HistoryList() {
                   </div>
                 </Link>
               </SidebarMenuButton>
+              <SidebarMenuAction
+                onClick={() => handleDelete(t.id, t.filename)}
+                showOnHover
+              >
+                <Trash2 />
+              </SidebarMenuAction>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>

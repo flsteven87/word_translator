@@ -4,7 +4,15 @@ from docx import Document
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.shared import Inches, Pt
 
-from src.models.translation import TranslationResult
+from src.models.translation import ParagraphStyle, TranslationResult
+
+_HEADING_STYLES: set[ParagraphStyle] = {
+    ParagraphStyle.TITLE,
+    ParagraphStyle.HEADING_1,
+    ParagraphStyle.HEADING_2,
+    ParagraphStyle.HEADING_3,
+    ParagraphStyle.HEADING_4,
+}
 
 
 class WordExporter:
@@ -26,8 +34,14 @@ class WordExporter:
 
         for para in result.paragraphs:
             row = table.add_row().cells
+            is_heading = para.style in _HEADING_STYLES
             row[0].text = para.original
             row[1].text = para.translated
+            if is_heading:
+                for cell in row:
+                    for paragraph in cell.paragraphs:
+                        for run in paragraph.runs:
+                            run.bold = True
 
         for row in table.rows:
             for cell in row.cells:

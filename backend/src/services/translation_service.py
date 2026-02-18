@@ -26,13 +26,16 @@ class TranslationService:
     async def translate_document(
         self, file_content: bytes, filename: str
     ) -> TranslationResult:
-        paragraphs = self._parser.parse(file_content)
-        translated = await self._strategy.translate(paragraphs)
+        parsed = self._parser.parse(file_content)
+        texts = [p.text for p in parsed]
+        translated = await self._strategy.translate(texts)
         result = TranslationResult(
             filename=filename,
             paragraphs=[
-                TranslatedParagraph(original=orig, translated=trans)
-                for orig, trans in zip(paragraphs, translated)
+                TranslatedParagraph(
+                    original=p.text, translated=trans, style=p.style
+                )
+                for p, trans in zip(parsed, translated)
             ],
         )
         self._store.save(result)
@@ -43,6 +46,9 @@ class TranslationService:
 
     def list_translations(self) -> list[TranslationSummary]:
         return self._store.list_all()
+
+    def delete_translation(self, translation_id: str) -> None:
+        self._store.delete(translation_id)
 
     def export_translation(self, result: TranslationResult) -> bytes:
         return self._exporter.export(result)

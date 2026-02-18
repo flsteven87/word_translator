@@ -1,8 +1,17 @@
 const BASE_URL = "/api/v1"
 
+export type ParagraphStyle =
+  | "title"
+  | "heading_1"
+  | "heading_2"
+  | "heading_3"
+  | "heading_4"
+  | "normal"
+
 export interface TranslatedParagraph {
   original: string
   translated: string
+  style: ParagraphStyle
 }
 
 export interface TranslationResult {
@@ -45,6 +54,13 @@ export async function fetchTranslation(
   const res = await fetch(`${BASE_URL}/translations/${id}`)
   if (!res.ok) throw new Error("Translation not found")
   return res.json()
+}
+
+export async function deleteTranslation(id: string): Promise<void> {
+  const res = await fetch(`${BASE_URL}/translations/${id}`, {
+    method: "DELETE",
+  })
+  if (!res.ok) throw new Error("Failed to delete translation")
 }
 
 export function getDownloadUrl(id: string): string {

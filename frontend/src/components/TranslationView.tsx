@@ -1,10 +1,19 @@
 import { Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { getDownloadUrl } from "@/lib/api"
-import type { TranslationResult } from "@/lib/api"
+import type { TranslationResult, ParagraphStyle } from "@/lib/api"
 
 interface Props {
   readonly result: TranslationResult
+}
+
+const STYLE_CLASSES: Record<ParagraphStyle, string> = {
+  title: "text-xl font-bold",
+  heading_1: "text-lg font-semibold",
+  heading_2: "text-base font-semibold",
+  heading_3: "text-sm font-semibold",
+  heading_4: "text-sm font-medium italic",
+  normal: "text-sm",
 }
 
 export function TranslationView({ result }: Props) {
@@ -36,16 +45,23 @@ export function TranslationView({ result }: Props) {
           <div className="bg-muted px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
             Translation
           </div>
-          {result.paragraphs.map((p, i) => (
-            <div key={i} className="contents">
-              <div className="bg-background px-4 py-3 text-sm leading-relaxed border-b border-border last:border-b-0">
-                {p.original}
+          {result.paragraphs.map((p, i) => {
+            const styleClass = STYLE_CLASSES[p.style]
+            return (
+              <div key={i} className="contents">
+                <div
+                  className={`bg-background px-4 py-3 leading-relaxed border-b border-border last:border-b-0 ${styleClass}`}
+                >
+                  {p.original}
+                </div>
+                <div
+                  className={`bg-background px-4 py-3 leading-relaxed border-b border-border last:border-b-0 ${styleClass}`}
+                >
+                  {p.translated}
+                </div>
               </div>
-              <div className="bg-background px-4 py-3 text-sm leading-relaxed border-b border-border last:border-b-0">
-                {p.translated}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>

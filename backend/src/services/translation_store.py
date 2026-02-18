@@ -30,6 +30,12 @@ class TranslationStore:
         except ValidationError as e:
             raise AppException(f"Invalid translation data for '{translation_id}'") from e
 
+    def delete(self, translation_id: str) -> None:
+        path = self._storage_dir / f"{translation_id}.json"
+        if not path.exists():
+            raise NotFoundError("Translation", translation_id)
+        path.unlink()
+
     def list_all(self) -> list[TranslationSummary]:
         results: list[TranslationSummary] = []
         paths = sorted(
