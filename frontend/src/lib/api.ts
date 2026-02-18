@@ -64,6 +64,19 @@ export async function deleteTranslation(id: string): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete translation")
 }
 
+export async function retranslateDocument(
+  id: string,
+): Promise<TranslationResult> {
+  const res = await fetch(`${BASE_URL}/translations/${id}/retranslate`, {
+    method: "POST",
+  })
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ detail: "Retranslation failed" }))
+    throw new Error(error.detail)
+  }
+  return res.json()
+}
+
 export function getDownloadUrl(id: string): string {
   return `${BASE_URL}/translations/${id}/download`
 }

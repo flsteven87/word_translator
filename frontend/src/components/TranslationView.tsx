@@ -1,7 +1,8 @@
-import { Download } from "lucide-react"
+import { Download, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { FontSizeControl } from "@/components/FontSizeControl"
+import { useRetranslate } from "@/hooks/queries/use-retranslate"
 import { getDownloadUrl } from "@/lib/api"
 import type { TranslationResult, ParagraphStyle } from "@/lib/api"
 
@@ -39,29 +40,49 @@ function getTopSpacing(style: ParagraphStyle, index: number, prevIsNormal: boole
 }
 
 export function TranslationView({ result }: Props) {
+  const retranslate = useRetranslate()
+
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+      <div className="flex items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-semibold tracking-tight truncate">
             {result.filename}
           </h1>
-          <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+          <p className="mt-1 text-sm text-muted-foreground">
             {result.paragraphs.length} paragraphs &middot;{" "}
             {new Date(result.created_at).toLocaleDateString()}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-xs" asChild>
-                  <a href={getDownloadUrl(result.id)} download>
-                    <Download />
-                  </a>
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Download Chinese Word file</TooltipContent>
-            </Tooltip>
           </p>
         </div>
-        <FontSizeControl />
+        <div className="flex items-center gap-1.5 shrink-0">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                disabled={retranslate.isPending}
+                onClick={() => retranslate.mutate(result.id)}
+              >
+                <RefreshCw className={retranslate.isPending ? "animate-spin" : ""} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {retranslate.isPending ? "Retranslating..." : "Retranslate"}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon-sm" asChild>
+                <a href={getDownloadUrl(result.id)} download>
+                  <Download />
+                </a>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Download Chinese Word file</TooltipContent>
+          </Tooltip>
+          <div className="w-px h-5 bg-border mx-1" />
+          <FontSizeControl />
+        </div>
       </div>
 
       <div className="mt-8">

@@ -8,7 +8,7 @@ from src.models.translation import (
     TranslationSummary,
 )
 from src.services.chunker import merge_paragraphs, unmerge_translation
-from src.services.document_parser import DocumentParser
+from src.services.document_parser import DocumentParser, ParsedParagraph
 from src.services.translation_store import TranslationStore
 from src.services.translation_strategy import BatchTranslationStrategy
 from src.services.word_exporter import WordExporter
@@ -32,11 +32,35 @@ class TranslationService:
         self, file_content: bytes, filename: str
     ) -> TranslationResult:
         parsed = self._parser.parse(file_content, filename)
+        paragraphs = await self._translate_parsed(parsed)
+        result = TranslationResult(filename=filename, paragraphs=paragraphs)
+        self._store.save(result)
+        self._store.save_upload(str(result.id), filename, file_content)
+        return result
+
+    async def retranslate(self, translation_id: str) -> TranslationResult:
+        existing = self._store.load(translation_id)
+        parsed = [
+            ParsedParagraph(text=p.original, style=p.style)
+            for p in existing.paragraphs
+        ]
+        paragraphs = await self._translate_parsed(parsed)
+        result = TranslationResult(
+            id=existing.id,
+            filename=existing.filename,
+            created_at=existing.created_at,
+            paragraphs=paragraphs,
+        )
+        self._store.save(result)
+        return result
+
+    async def _translate_parsed(
+        self, parsed: list[ParsedParagraph]
+    ) -> list[TranslatedParagraph]:
         chunks = merge_paragraphs(parsed)
         translated_chunks = await self._strategy.translate(
             [c.text for c in chunks]
         )
-
         paragraphs: list[TranslatedParagraph] = []
         for chunk, translated_text in zip(chunks, translated_chunks):
             parts = unmerge_translation(translated_text, len(chunk.members))
@@ -46,11 +70,7 @@ class TranslationService:
                         original=member.text, translated=part, style=member.style
                     )
                 )
-
-        result = TranslationResult(filename=filename, paragraphs=paragraphs)
-        self._store.save(result)
-        self._store.save_upload(str(result.id), filename, file_content)
-        return result
+        return paragraphs
 
     def get_translation(self, translation_id: str) -> TranslationResult:
         return self._store.load(translation_id)

@@ -40,6 +40,14 @@ async def upload_and_translate(
     return await service.translate_document(content, file.filename or "unknown.docx")
 
 
+@router.post("/{translation_id}/retranslate")
+async def retranslate(
+    translation_id: str,
+    service: TranslationServiceDep,
+) -> TranslationResult:
+    return await service.retranslate(translation_id)
+
+
 @router.get("")
 def list_translations(service: TranslationServiceDep) -> list[TranslationSummary]:
     return service.list_translations()
