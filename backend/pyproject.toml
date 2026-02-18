@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.129.0",
+    "landingai-ade>=1.6.0",
     "openai>=2.21.0",
     "pydantic-settings>=2.13.0",
     "pymupdf4llm>=0.3.4",
