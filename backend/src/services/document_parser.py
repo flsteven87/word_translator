@@ -53,11 +53,13 @@ class ParsedParagraph:
 
 
 class DocumentParser:
-    def __init__(self, vision_agent_api_key: str) -> None:
-        self._ade_client = LandingAIADE(
-            apikey=vision_agent_api_key,
-            environment="production",
-        )
+    def __init__(self, vision_agent_api_key: str | None = None) -> None:
+        self._ade_client: LandingAIADE | None = None
+        if vision_agent_api_key:
+            self._ade_client = LandingAIADE(
+                apikey=vision_agent_api_key,
+                environment="production",
+            )
 
     def parse(self, file_content: bytes, filename: str) -> list[ParsedParagraph]:
         ext = filename.rsplit(".", maxsplit=1)[-1].lower() if "." in filename else ""
@@ -79,6 +81,8 @@ class DocumentParser:
         return results
 
     def _parse_pdf(self, file_content: bytes) -> list[ParsedParagraph]:
+        if not self._ade_client:
+            return self._parse_pdf_with_pymupdf(file_content)
         try:
             return self._parse_pdf_with_ade(file_content)
         except InputValidationError:
