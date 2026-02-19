@@ -1,16 +1,79 @@
 import asyncio
 import re
 from abc import ABC, abstractmethod
+from enum import Enum
 
 from openai import AsyncOpenAI
+from pydantic import BaseModel as PydanticBaseModel
 
-SYSTEM_PROMPT = (
-    "You are a professional English to Traditional Chinese (繁體中文) translator. "
-    "Translate each numbered item into Traditional Chinese accurately and naturally. "
-    "You MUST use Traditional Chinese characters only — never use Simplified Chinese. "
-    "Return ONLY the translations in the exact same numbered format <<<N>>>. "
-    "Do not add, remove, or reorder any items."
+from src.models.translation import TranslationDirection
+
+_SYSTEM_PROMPTS: dict[TranslationDirection, str] = {
+    TranslationDirection.EN_TO_ZH: (
+        "You are a professional English to Traditional Chinese (繁體中文) translator. "
+        "Translate each numbered item into Traditional Chinese accurately and naturally. "
+        "You MUST use Traditional Chinese characters only — never use Simplified Chinese. "
+        "Return ONLY the translations in the exact same numbered format <<<N>>>. "
+        "Do not add, remove, or reorder any items."
+    ),
+    TranslationDirection.ZH_TO_EN: (
+        "You are a professional Traditional Chinese to English translator. "
+        "Translate each numbered item into natural, academic English. "
+        "Return ONLY the translations in the exact same numbered format <<<N>>>. "
+        "Do not add, remove, or reorder any items."
+    ),
+}
+
+
+# --- Language detection -------------------------------------------------------
+
+
+class _DocumentLanguage(str, Enum):
+    EN = "en"
+    ZH = "zh"
+
+
+class _LanguageDetectionResult(PydanticBaseModel):
+    language: _DocumentLanguage
+
+
+_DETECTION_PROMPT = (
+    "Detect the language of the following text. "
+    "Return 'en' for English or 'zh' for Chinese."
 )
+_MAX_SAMPLE_CHARS = 1000
+_MAX_SAMPLE_PARAGRAPHS = 5
+
+
+async def detect_language(
+    client: AsyncOpenAI,
+    model: str,
+    paragraphs: list[str],
+) -> TranslationDirection:
+    if not paragraphs:
+        return TranslationDirection.EN_TO_ZH
+
+    sample = "\n".join(paragraphs[:_MAX_SAMPLE_PARAGRAPHS])[:_MAX_SAMPLE_CHARS]
+
+    try:
+        response = await client.beta.chat.completions.parse(
+            model=model,
+            messages=[
+                {"role": "system", "content": _DETECTION_PROMPT},
+                {"role": "user", "content": sample},
+            ],
+            response_format=_LanguageDetectionResult,
+            temperature=0,
+        )
+        detected = response.choices[0].message.parsed
+        if detected.language == _DocumentLanguage.ZH:
+            return TranslationDirection.ZH_TO_EN
+        return TranslationDirection.EN_TO_ZH
+    except Exception:
+        return TranslationDirection.EN_TO_ZH
+
+
+# --- Translation strategies ---------------------------------------------------
 
 
 class TranslationStrategy(ABC):
@@ -20,11 +83,16 @@ class TranslationStrategy(ABC):
 
 class BatchTranslationStrategy(TranslationStrategy):
     def __init__(
-        self, client: AsyncOpenAI, model: str, batch_size: int = 10
+        self,
+        client: AsyncOpenAI,
+        model: str,
+        batch_size: int = 10,
+        direction: TranslationDirection = TranslationDirection.EN_TO_ZH,
     ) -> None:
         self._client = client
         self._model = model
         self._batch_size = batch_size
+        self._system_prompt = _SYSTEM_PROMPTS[direction]
 
     async def translate(self, paragraphs: list[str]) -> list[str]:
         if not paragraphs:
@@ -43,7 +111,7 @@ class BatchTranslationStrategy(TranslationStrategy):
         response = await self._client.chat.completions.create(
             model=self._model,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": self._system_prompt},
                 {"role": "user", "content": numbered},
             ],
         )
@@ -64,7 +132,7 @@ class BatchTranslationStrategy(TranslationStrategy):
         response = await self._client.chat.completions.create(
             model=self._model,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": self._system_prompt},
                 {"role": "user", "content": f"<<<1>>> {text}"},
             ],
         )

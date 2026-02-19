@@ -16,6 +16,11 @@ class ParagraphStyle(str, Enum):
     TABLE = "table"
 
 
+class TranslationDirection(str, Enum):
+    EN_TO_ZH = "en_to_zh"
+    ZH_TO_EN = "zh_to_en"
+
+
 class TranslatedParagraph(BaseModel):
     original: str
     translated: str
@@ -26,6 +31,7 @@ class TranslatedParagraph(BaseModel):
 class TranslationResult(BaseModel):
     id: UUID = Field(default_factory=uuid4)
     filename: str
+    direction: TranslationDirection = TranslationDirection.EN_TO_ZH
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     paragraphs: list[TranslatedParagraph]
 

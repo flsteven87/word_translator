@@ -2,6 +2,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from src.models.translation import TranslationDirection
 from src.services.translation_strategy import BatchTranslationStrategy
 
 
@@ -74,3 +75,22 @@ async def test_batch_translate_empty_input(mock_openai_client):
     result = await strategy.translate([])
     assert result == []
     mock_openai_client.chat.completions.create.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_batch_translate_zh_to_en(mock_openai_client):
+    mock_openai_client.chat.completions.create.return_value = (
+        _make_completion_response("<<<1>>> Hello\n<<<2>>> World")
+    )
+    strategy = BatchTranslationStrategy(
+        client=mock_openai_client,
+        model="gpt-4o-mini",
+        batch_size=10,
+        direction=TranslationDirection.ZH_TO_EN,
+    )
+    result = await strategy.translate(["你好", "世界"])
+    assert result == ["Hello", "World"]
+
+    call_args = mock_openai_client.chat.completions.create.call_args
+    system_content = call_args.kwargs["messages"][0]["content"]
+    assert "Chinese to English" in system_content
