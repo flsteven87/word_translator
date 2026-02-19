@@ -35,15 +35,19 @@ class TranslationService:
     async def translate_document(
         self, file_content: bytes, filename: str
     ) -> TranslationResult:
-        parsed = self._parser.parse(file_content, filename)
+        parsed = await asyncio.to_thread(self._parser.parse, file_content, filename)
         paragraphs = await self._translate_parsed(parsed)
         result = TranslationResult(filename=filename, paragraphs=paragraphs)
-        self._store.save(result)
-        self._store.save_upload(str(result.id), filename, file_content)
+        await asyncio.gather(
+            asyncio.to_thread(self._store.save, result),
+            asyncio.to_thread(
+                self._store.save_upload, str(result.id), filename, file_content,
+            ),
+        )
         return result
 
     async def retranslate(self, translation_id: str) -> TranslationResult:
-        existing = self._store.load(translation_id)
+        existing = await asyncio.to_thread(self._store.load, translation_id)
         parsed = [
             ParsedParagraph(text=p.original, style=p.style, image_base64=p.image)
             for p in existing.paragraphs
@@ -55,7 +59,7 @@ class TranslationService:
             created_at=existing.created_at,
             paragraphs=paragraphs,
         )
-        self._store.save(result)
+        await asyncio.to_thread(self._store.save, result)
         return result
 
     async def _translate_parsed(

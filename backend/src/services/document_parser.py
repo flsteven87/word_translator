@@ -2,6 +2,8 @@ import base64
 import logging
 import re
 from dataclasses import dataclass, field
+from html import escape as html_escape
+from html.parser import HTMLParser
 from io import BytesIO
 
 import pymupdf
@@ -52,6 +54,48 @@ _CHUNK_FIGURE_TYPES = frozenset({
 _CHUNK_SKIP_TYPES = frozenset({
     "marginalia", "pageHeader", "pageFooter", "pageNumber",
 })
+
+
+_SAFE_TABLE_TAGS = frozenset({
+    "table", "thead", "tbody", "tfoot", "tr", "th", "td",
+    "caption", "colgroup", "col",
+})
+_SAFE_TABLE_ATTRS = frozenset({"colspan", "rowspan", "scope", "headers"})
+
+
+class _TableSanitizer(HTMLParser):
+    """Strip all HTML except safe table-related tags to prevent XSS."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in _SAFE_TABLE_TAGS:
+            safe = [(k, v) for k, v in attrs if k in _SAFE_TABLE_ATTRS]
+            attr_str = ""
+            if safe:
+                attr_str = " " + " ".join(
+                    f'{k}="{html_escape(v or "")}"' for k, v in safe
+                )
+            self._parts.append(f"<{tag}{attr_str}>")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in _SAFE_TABLE_TAGS:
+            self._parts.append(f"</{tag}>")
+
+    def handle_data(self, data: str) -> None:
+        self._parts.append(html_escape(data))
+
+    def get_result(self) -> str:
+        return "".join(self._parts)
+
+
+def _sanitize_table_html(html: str) -> str:
+    sanitizer = _TableSanitizer()
+    sanitizer.feed(html)
+    sanitizer.close()
+    return sanitizer.get_result()
 
 
 def _strip_inline_markers(text: str) -> str:
@@ -155,7 +199,11 @@ def _extract_figure_image(
         pixmap = page.get_pixmap(clip=clip, dpi=_FIGURE_DPI)
         return base64.b64encode(pixmap.tobytes("png")).decode("ascii")
     except Exception:
-        logger.warning("Failed to extract figure image at page %s", grounding.page)
+        logger.warning(
+            "Failed to extract figure image at page %s",
+            getattr(grounding, "page", "?"),
+            exc_info=True,
+        )
         return None
 
 
@@ -177,7 +225,9 @@ def _parse_ade_chunks(
                 text=markdown, style=ParagraphStyle.FIGURE, image_base64=image,
             ))
         elif chunk_type == "table":
-            results.append(ParsedParagraph(text=markdown, style=ParagraphStyle.TABLE))
+            results.append(ParsedParagraph(
+                text=_sanitize_table_html(markdown), style=ParagraphStyle.TABLE,
+            ))
         else:
             results.extend(_parse_markdown(markdown))
     return results
@@ -200,7 +250,9 @@ def _parse_markdown(md_text: str) -> list[ParsedParagraph]:
         nonlocal in_html_table
         text = "\n".join(table_buffer).strip()
         if text:
-            results.append(ParsedParagraph(text=text, style=ParagraphStyle.TABLE))
+            results.append(ParsedParagraph(
+                text=_sanitize_table_html(text), style=ParagraphStyle.TABLE,
+            ))
         table_buffer.clear()
         in_html_table = False
 

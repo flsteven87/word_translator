@@ -1,6 +1,7 @@
 from pathlib import PurePosixPath
 from typing import Annotated
 from urllib.parse import quote
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, UploadFile
 from fastapi.responses import Response
@@ -42,10 +43,10 @@ async def upload_and_translate(
 
 @router.post("/{translation_id}/retranslate")
 async def retranslate(
-    translation_id: str,
+    translation_id: UUID,
     service: TranslationServiceDep,
 ) -> TranslationResult:
-    return await service.retranslate(translation_id)
+    return await service.retranslate(str(translation_id))
 
 
 @router.get("")
@@ -55,26 +56,26 @@ def list_translations(service: TranslationServiceDep) -> list[TranslationSummary
 
 @router.get("/{translation_id}")
 def get_translation(
-    translation_id: str,
+    translation_id: UUID,
     service: TranslationServiceDep,
 ) -> TranslationResult:
-    return service.get_translation(translation_id)
+    return service.get_translation(str(translation_id))
 
 
 @router.delete("/{translation_id}", status_code=204)
 def delete_translation(
-    translation_id: str,
+    translation_id: UUID,
     service: TranslationServiceDep,
 ) -> None:
-    service.delete_translation(translation_id)
+    service.delete_translation(str(translation_id))
 
 
 @router.get("/{translation_id}/download")
 def download_translation(
-    translation_id: str,
+    translation_id: UUID,
     service: TranslationServiceDep,
 ) -> Response:
-    result = service.get_translation(translation_id)
+    result = service.get_translation(str(translation_id))
     docx_bytes, filename = service.export_translation(result)
     return Response(
         content=docx_bytes,
