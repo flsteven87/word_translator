@@ -87,7 +87,11 @@ export function TranslationView({ result }: Props) {
                 </a>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>Download Chinese Word file</TooltipContent>
+            <TooltipContent>
+              {result.direction === "zh_to_en"
+                ? "Download English Word file"
+                : "Download Chinese Word file"}
+            </TooltipContent>
           </Tooltip>
           <div className="w-px h-5 bg-border mx-1" />
           <FontSizeControl />
@@ -96,8 +100,12 @@ export function TranslationView({ result }: Props) {
 
       <div className="mt-8">
         <div className="grid grid-cols-2 gap-x-8 mb-4 px-1">
-          <p className="text-xs font-medium text-muted-foreground">English</p>
-          <p className="text-xs font-medium text-muted-foreground">中文</p>
+          <p className="text-xs font-medium text-muted-foreground">
+            {result.direction === "zh_to_en" ? "中文" : "English"}
+          </p>
+          <p className="text-xs font-medium text-muted-foreground">
+            {result.direction === "zh_to_en" ? "English" : "中文"}
+          </p>
         </div>
 
         <div>

@@ -18,9 +18,12 @@ export interface TranslatedParagraph {
   image: string | null
 }
 
+export type TranslationDirection = "en_to_zh" | "zh_to_en"
+
 export interface TranslationResult {
   id: string
   filename: string
+  direction: TranslationDirection
   created_at: string
   paragraphs: TranslatedParagraph[]
 }
