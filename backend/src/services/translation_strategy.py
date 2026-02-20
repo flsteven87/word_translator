@@ -1,12 +1,15 @@
 import asyncio
+import logging
 import re
 from abc import ABC, abstractmethod
 from enum import Enum
 
 from openai import AsyncOpenAI
-from pydantic import BaseModel as PydanticBaseModel
+from pydantic import BaseModel
 
 from src.models.translation import TranslationDirection
+
+logger = logging.getLogger(__name__)
 
 _SYSTEM_PROMPTS: dict[TranslationDirection, str] = {
     TranslationDirection.EN_TO_ZH: (
@@ -33,7 +36,7 @@ class _DocumentLanguage(str, Enum):
     ZH = "zh"
 
 
-class _LanguageDetectionResult(PydanticBaseModel):
+class _LanguageDetectionResult(BaseModel):
     language: _DocumentLanguage
 
 
@@ -70,6 +73,7 @@ async def detect_language(
             return TranslationDirection.ZH_TO_EN
         return TranslationDirection.EN_TO_ZH
     except Exception:
+        logger.warning("Language detection failed, defaulting to EN_TO_ZH", exc_info=True)
         return TranslationDirection.EN_TO_ZH
 
 
