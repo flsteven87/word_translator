@@ -6,13 +6,18 @@ from openai import AsyncOpenAI
 from src.models.translation import (
     ParagraphStyle,
     TranslatedParagraph,
+    TranslationDirection,
     TranslationResult,
     TranslationSummary,
 )
 from src.services.chunker import group_paragraphs
 from src.services.document_parser import DocumentParser, ParsedParagraph
 from src.services.translation_store import TranslationStore
-from src.services.translation_strategy import BatchTranslationStrategy
+from src.services.translation_strategy import (
+    BatchTranslationStrategy,
+    TranslationStrategy,
+    detect_language,
+)
 from src.services.word_exporter import WordExporter
 
 _NON_TRANSLATABLE_STYLES = frozenset({ParagraphStyle.FIGURE, ParagraphStyle.TABLE})
@@ -29,15 +34,29 @@ class TranslationService:
         self._parser = DocumentParser(vision_agent_api_key)
         self._store = TranslationStore(storage_dir=storage_dir)
         self._exporter = WordExporter()
-        client = AsyncOpenAI(api_key=openai_api_key)
-        self._strategy = BatchTranslationStrategy(client=client, model=openai_model)
+        self._client = AsyncOpenAI(api_key=openai_api_key)
+        self._model = openai_model
+
+    def _make_strategy(
+        self, direction: TranslationDirection,
+    ) -> BatchTranslationStrategy:
+        return BatchTranslationStrategy(
+            client=self._client, model=self._model, direction=direction,
+        )
 
     async def translate_document(
         self, file_content: bytes, filename: str
     ) -> TranslationResult:
         parsed = await asyncio.to_thread(self._parser.parse, file_content, filename)
-        paragraphs = await self._translate_parsed(parsed)
-        result = TranslationResult(filename=filename, paragraphs=paragraphs)
+        texts = [
+            p.text for p in parsed if p.style not in _NON_TRANSLATABLE_STYLES
+        ]
+        direction = await detect_language(self._client, self._model, texts)
+        strategy = self._make_strategy(direction)
+        paragraphs = await self._translate_parsed(parsed, strategy)
+        result = TranslationResult(
+            filename=filename, paragraphs=paragraphs, direction=direction,
+        )
         await asyncio.gather(
             asyncio.to_thread(self._store.save, result),
             asyncio.to_thread(
@@ -52,18 +71,24 @@ class TranslationService:
             ParsedParagraph(text=p.original, style=p.style, image_base64=p.image)
             for p in existing.paragraphs
         ]
-        paragraphs = await self._translate_parsed(parsed)
+        texts = [
+            p.text for p in parsed if p.style not in _NON_TRANSLATABLE_STYLES
+        ]
+        direction = await detect_language(self._client, self._model, texts)
+        strategy = self._make_strategy(direction)
+        paragraphs = await self._translate_parsed(parsed, strategy)
         result = TranslationResult(
             id=existing.id,
             filename=existing.filename,
             created_at=existing.created_at,
             paragraphs=paragraphs,
+            direction=direction,
         )
         await asyncio.to_thread(self._store.save, result)
         return result
 
     async def _translate_parsed(
-        self, parsed: list[ParsedParagraph]
+        self, parsed: list[ParsedParagraph], strategy: TranslationStrategy,
     ) -> list[TranslatedParagraph]:
         groups = group_paragraphs(parsed)
 
@@ -79,7 +104,7 @@ class TranslationService:
                     for member in group
                 ]
             texts = [p.text for p in group]
-            translated = await self._strategy.translate(texts)
+            translated = await strategy.translate(texts)
             return [
                 TranslatedParagraph(
                     original=member.text, translated=trans, style=member.style,
@@ -110,5 +135,6 @@ class TranslationService:
                 original_docx = path.read_bytes()
         docx_bytes = self._exporter.export(result, original_docx=original_docx)
         stem = Path(result.filename).stem
-        filename = f"{stem}_中文.docx"
+        suffix = "_English" if result.direction == TranslationDirection.ZH_TO_EN else "_中文"
+        filename = f"{stem}{suffix}.docx"
         return docx_bytes, filename

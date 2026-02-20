@@ -6,8 +6,17 @@ import pytest
 from docx import Document
 
 from src.core.exceptions import NotFoundError
-from src.models.translation import ParagraphStyle, TranslationResult
+from src.models.translation import (
+    ParagraphStyle,
+    TranslationDirection,
+    TranslationResult,
+)
 from src.services.translation_service import TranslationService
+
+_DETECT_LANG = "src.services.translation_service.detect_language"
+_BATCH_TRANSLATE = (
+    "src.services.translation_service.BatchTranslationStrategy.translate"
+)
 
 
 @pytest.fixture
@@ -33,14 +42,18 @@ def _make_docx(paragraphs: list[str]) -> bytes:
 async def test_translate_document(service):
     docx_content = _make_docx(["Hello world.", "Good morning."])
 
-    with patch.object(
-        service._strategy, "translate", new_callable=AsyncMock
+    with patch(
+        _DETECT_LANG, new_callable=AsyncMock
+    ) as mock_detect, patch(
+        _BATCH_TRANSLATE, new_callable=AsyncMock
     ) as mock_translate:
+        mock_detect.return_value = TranslationDirection.EN_TO_ZH
         mock_translate.return_value = ["你好世界。", "早安。"]
         result = await service.translate_document(docx_content, "test.docx")
 
     assert isinstance(result, TranslationResult)
     assert result.filename == "test.docx"
+    assert result.direction == TranslationDirection.EN_TO_ZH
     assert len(result.paragraphs) == 2
     assert result.paragraphs[0].original == "Hello world."
     assert result.paragraphs[0].translated == "你好世界。"
@@ -52,9 +65,12 @@ async def test_translate_document(service):
 async def test_translate_document_is_persisted(service):
     docx_content = _make_docx(["Hello."])
 
-    with patch.object(
-        service._strategy, "translate", new_callable=AsyncMock
+    with patch(
+        _DETECT_LANG, new_callable=AsyncMock
+    ) as mock_detect, patch(
+        _BATCH_TRANSLATE, new_callable=AsyncMock
     ) as mock_translate:
+        mock_detect.return_value = TranslationDirection.EN_TO_ZH
         mock_translate.return_value = ["你好。"]
         result = await service.translate_document(docx_content, "test.docx")
 
@@ -74,8 +90,13 @@ def test_get_translation_not_found(service):
 def test_export_translation(service):
     docx_content = _make_docx(["Hello."])
 
-    with patch.object(service._strategy, "translate", new_callable=AsyncMock) as m:
-        m.return_value = ["你好。"]
+    with patch(
+        _DETECT_LANG, new_callable=AsyncMock
+    ) as mock_detect, patch(
+        _BATCH_TRANSLATE, new_callable=AsyncMock
+    ) as mock_translate:
+        mock_detect.return_value = TranslationDirection.EN_TO_ZH
+        mock_translate.return_value = ["你好。"]
         result = asyncio.get_event_loop().run_until_complete(
             service.translate_document(docx_content, "test.docx")
         )
@@ -100,9 +121,12 @@ async def test_short_paragraphs_each_get_own_translation(service):
         "The abbreviation pp. should be used for page numbers in books.",
     ])
 
-    with patch.object(
-        service._strategy, "translate", new_callable=AsyncMock
+    with patch(
+        _DETECT_LANG, new_callable=AsyncMock
+    ) as mock_detect, patch(
+        _BATCH_TRANSLATE, new_callable=AsyncMock
     ) as mock_translate:
+        mock_detect.return_value = TranslationDirection.EN_TO_ZH
         mock_translate.return_value = [
             "縮寫 (ed.) 或 (eds.) 應跟在編輯姓名後面。",
             "引用編輯書卷中的文章時，先列出作者姓名。",
@@ -143,7 +167,12 @@ async def test_heading_separated_groups_translated_independently(service):
             return ["方法細節在此。"]
         raise ValueError(f"Unexpected texts: {texts}")
 
-    with patch.object(service._strategy, "translate", side_effect=mock_translate):
+    with patch(
+        _DETECT_LANG, new_callable=AsyncMock
+    ) as mock_detect, patch(
+        _BATCH_TRANSLATE, side_effect=mock_translate
+    ):
+        mock_detect.return_value = TranslationDirection.EN_TO_ZH
         result = await service.translate_document(docx_with_heading, "test.docx")
 
     assert len(result.paragraphs) == 3
@@ -170,10 +199,14 @@ async def test_figure_and_table_paragraphs_skip_translation(service):
     ]
 
     with patch.object(service, "_parser") as mock_parser, \
-         patch.object(
-             service._strategy, "translate", new_callable=AsyncMock
+         patch(
+             _DETECT_LANG, new_callable=AsyncMock
+         ) as mock_detect, \
+         patch(
+             _BATCH_TRANSLATE, new_callable=AsyncMock
          ) as mock_translate:
         mock_parser.parse.return_value = parsed
+        mock_detect.return_value = TranslationDirection.EN_TO_ZH
         mock_translate.side_effect = [
             ["普通文本。"],
             ["更多文本。"],
@@ -190,3 +223,74 @@ async def test_figure_and_table_paragraphs_skip_translation(service):
     assert result.paragraphs[2].style == ParagraphStyle.TABLE
     assert result.paragraphs[2].translated == ""
     assert result.paragraphs[3].translated == "更多文本。"
+
+
+# --- New tests for language detection integration ---
+
+
+@pytest.mark.asyncio
+async def test_translate_chinese_document_detects_zh_to_en(service):
+    """Chinese document should be detected as ZH_TO_EN direction."""
+    docx_content = _make_docx(["你好世界。", "早安。"])
+
+    with patch(
+        _DETECT_LANG, new_callable=AsyncMock
+    ) as mock_detect, patch(
+        _BATCH_TRANSLATE, new_callable=AsyncMock
+    ) as mock_translate:
+        mock_detect.return_value = TranslationDirection.ZH_TO_EN
+        mock_translate.return_value = ["Hello world.", "Good morning."]
+        result = await service.translate_document(docx_content, "test.docx")
+
+    assert result.direction == TranslationDirection.ZH_TO_EN
+    assert result.paragraphs[0].original == "你好世界。"
+    assert result.paragraphs[0].translated == "Hello world."
+
+
+@pytest.mark.asyncio
+async def test_retranslate_preserves_detected_direction(service):
+    """Retranslate re-detects language and sets direction on the result."""
+    docx_content = _make_docx(["Hello."])
+
+    with patch(
+        _DETECT_LANG, new_callable=AsyncMock
+    ) as mock_detect, patch(
+        _BATCH_TRANSLATE, new_callable=AsyncMock
+    ) as mock_translate:
+        mock_detect.return_value = TranslationDirection.EN_TO_ZH
+        mock_translate.return_value = ["你好。"]
+        original = await service.translate_document(docx_content, "test.docx")
+
+    with patch(
+        _DETECT_LANG, new_callable=AsyncMock
+    ) as mock_detect, patch(
+        _BATCH_TRANSLATE, new_callable=AsyncMock
+    ) as mock_translate:
+        mock_detect.return_value = TranslationDirection.EN_TO_ZH
+        mock_translate.return_value = ["哈囉。"]
+        retranslated = await service.retranslate(str(original.id))
+
+    assert retranslated.direction == TranslationDirection.EN_TO_ZH
+    assert retranslated.paragraphs[0].translated == "哈囉。"
+
+
+def test_export_zh_to_en_filename(service):
+    """Export of ZH_TO_EN translation should produce filename ending with _English.docx."""
+    docx_content = _make_docx(["你好。"])
+
+    with patch(
+        _DETECT_LANG, new_callable=AsyncMock
+    ) as mock_detect, patch(
+        _BATCH_TRANSLATE, new_callable=AsyncMock
+    ) as mock_translate:
+        mock_detect.return_value = TranslationDirection.ZH_TO_EN
+        mock_translate.return_value = ["Hello."]
+        result = asyncio.get_event_loop().run_until_complete(
+            service.translate_document(docx_content, "test.docx")
+        )
+
+    loaded = service.get_translation(str(result.id))
+    docx_bytes, filename = service.export_translation(loaded)
+    assert isinstance(docx_bytes, bytes)
+    assert len(docx_bytes) > 0
+    assert filename == "test_English.docx"
