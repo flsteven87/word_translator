@@ -127,14 +127,7 @@ class TranslationService:
         self._store.delete(translation_id)
 
     def export_translation(self, result: TranslationResult) -> tuple[bytes, str]:
-        original_docx: bytes | None = None
-        upload = self._store.load_upload(str(result.id))
-        if upload is not None:
-            path, ext = upload
-            if ext == "docx":
-                original_docx = path.read_bytes()
-        docx_bytes = self._exporter.export(result, original_docx=original_docx)
+        docx_bytes = self._exporter.export(result)
         stem = Path(result.filename).stem
-        suffix = "_English" if result.direction == TranslationDirection.ZH_TO_EN else "_中文"
-        filename = f"{stem}{suffix}.docx"
+        filename = f"{stem}_對照.docx"
         return docx_bytes, filename

@@ -87,11 +87,7 @@ export function TranslationView({ result }: Props) {
                 </a>
               </Button>
             </TooltipTrigger>
-            <TooltipContent>
-              {result.direction === "zh_to_en"
-                ? "Download English Word file"
-                : "Download Chinese Word file"}
-            </TooltipContent>
+            <TooltipContent>Download bilingual Word file</TooltipContent>
           </Tooltip>
           <div className="w-px h-5 bg-border mx-1" />
           <FontSizeControl />
