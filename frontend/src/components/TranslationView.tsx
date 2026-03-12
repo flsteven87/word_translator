@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { ArrowUp, Download, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { FontSizeControl } from "@/components/FontSizeControl"
 import { useRetranslate } from "@/hooks/queries/use-retranslate"
 import { getDownloadUrl } from "@/lib/api"
@@ -77,32 +76,22 @@ export function TranslationView({ result }: Props) {
         </p>
 
         <div className="mt-3 flex items-center gap-1.5">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                disabled={retranslate.isPending}
-                onClick={() => retranslate.mutate(result.id)}
-              >
-                <RefreshCw className={retranslate.isPending ? "animate-spin" : ""} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              {retranslate.isPending ? "Retranslating..." : "Retranslate"}
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon-sm" asChild>
-                <a href={getDownloadUrl(result.id)} download>
-                  <Download />
-                </a>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Download bilingual Word file</TooltipContent>
-          </Tooltip>
-          <div className="w-px h-5 bg-border mx-1" />
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={retranslate.isPending}
+            onClick={() => retranslate.mutate(result.id)}
+          >
+            <RefreshCw className={retranslate.isPending ? "animate-spin" : ""} />
+            {retranslate.isPending ? "重翻中..." : "重翻"}
+          </Button>
+          <Button variant="ghost" size="sm" asChild>
+            <a href={getDownloadUrl(result.id)} download>
+              <Download />
+              下載
+            </a>
+          </Button>
+          <div className="flex-1" />
           <FontSizeControl />
         </div>
       </div>
