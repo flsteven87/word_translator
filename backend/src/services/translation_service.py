@@ -38,29 +38,35 @@ class TranslationService:
         self._model = openai_model
 
     def _make_strategy(
-        self, direction: TranslationDirection,
+        self,
+        direction: TranslationDirection,
     ) -> BatchTranslationStrategy:
         return BatchTranslationStrategy(
-            client=self._client, model=self._model, direction=direction,
+            client=self._client,
+            model=self._model,
+            direction=direction,
         )
 
     async def translate_document(
         self, file_content: bytes, filename: str
     ) -> TranslationResult:
         parsed = await asyncio.to_thread(self._parser.parse, file_content, filename)
-        texts = [
-            p.text for p in parsed if p.style not in _NON_TRANSLATABLE_STYLES
-        ]
+        texts = [p.text for p in parsed if p.style not in _NON_TRANSLATABLE_STYLES]
         direction = await detect_language(self._client, self._model, texts)
         strategy = self._make_strategy(direction)
         paragraphs = await self._translate_parsed(parsed, strategy)
         result = TranslationResult(
-            filename=filename, paragraphs=paragraphs, direction=direction,
+            filename=filename,
+            paragraphs=paragraphs,
+            direction=direction,
         )
         await asyncio.gather(
             asyncio.to_thread(self._store.save, result),
             asyncio.to_thread(
-                self._store.save_upload, str(result.id), filename, file_content,
+                self._store.save_upload,
+                str(result.id),
+                filename,
+                file_content,
             ),
         )
         return result
@@ -71,9 +77,7 @@ class TranslationService:
             ParsedParagraph(text=p.original, style=p.style, image_base64=p.image)
             for p in existing.paragraphs
         ]
-        texts = [
-            p.text for p in parsed if p.style not in _NON_TRANSLATABLE_STYLES
-        ]
+        texts = [p.text for p in parsed if p.style not in _NON_TRANSLATABLE_STYLES]
         direction = await detect_language(self._client, self._model, texts)
         strategy = self._make_strategy(direction)
         paragraphs = await self._translate_parsed(parsed, strategy)
@@ -88,7 +92,9 @@ class TranslationService:
         return result
 
     async def _translate_parsed(
-        self, parsed: list[ParsedParagraph], strategy: TranslationStrategy,
+        self,
+        parsed: list[ParsedParagraph],
+        strategy: TranslationStrategy,
     ) -> list[TranslatedParagraph]:
         groups = group_paragraphs(parsed)
 
@@ -98,7 +104,9 @@ class TranslationService:
             if group[0].style in _NON_TRANSLATABLE_STYLES:
                 return [
                     TranslatedParagraph(
-                        original=member.text, translated="", style=member.style,
+                        original=member.text,
+                        translated="",
+                        style=member.style,
                         image=member.image_base64,
                     )
                     for member in group
@@ -107,14 +115,14 @@ class TranslationService:
             translated = await strategy.translate(texts)
             return [
                 TranslatedParagraph(
-                    original=member.text, translated=trans, style=member.style,
+                    original=member.text,
+                    translated=trans,
+                    style=member.style,
                 )
                 for member, trans in zip(group, translated)
             ]
 
-        results = await asyncio.gather(
-            *[_translate_group(g) for g in groups]
-        )
+        results = await asyncio.gather(*[_translate_group(g) for g in groups])
         return [p for group_result in results for p in group_result]
 
     def get_translation(self, translation_id: str) -> TranslationResult:
@@ -129,5 +137,5 @@ class TranslationService:
     def export_translation(self, result: TranslationResult) -> tuple[bytes, str]:
         docx_bytes = self._exporter.export(result)
         stem = Path(result.filename).stem
-        filename = f"{stem}_對照.docx"
+        filename = f"EC-{stem}.docx"
         return docx_bytes, filename

@@ -2,6 +2,7 @@ from io import BytesIO
 
 from docx import Document
 from docx.enum.table import WD_TABLE_ALIGNMENT
+from docx.oxml.ns import qn
 from docx.shared import Inches, Pt
 
 from src.models.translation import (
@@ -57,9 +58,23 @@ class WordExporter:
                         for run in paragraph.runs:
                             run.bold = True
 
+        # Force equal column widths by disabling autofit and setting fixed layout
+        table.autofit = False
+        tbl = table._tbl
+        tbl_pr = tbl.tblPr
+        tbl_layout = tbl_pr.find(qn("w:tblLayout"))
+        if tbl_layout is None:
+            tbl_layout = tbl_pr.makeelement(qn("w:tblLayout"), {})
+            tbl_pr.append(tbl_layout)
+        tbl_layout.set(qn("w:type"), "fixed")
+
+        col_width = Inches(3.25)
+        for col in table.columns:
+            col.width = col_width
+
         for row in table.rows:
             for cell in row.cells:
-                cell.width = Inches(3.5)
+                cell.width = col_width
                 for paragraph in cell.paragraphs:
                     paragraph.paragraph_format.space_after = Pt(4)
 

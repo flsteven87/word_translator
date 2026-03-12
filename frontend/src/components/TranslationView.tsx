@@ -1,4 +1,5 @@
-import { Download, RefreshCw } from "lucide-react"
+import { useEffect, useState } from "react"
+import { ArrowUp, Download, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip"
 import { FontSizeControl } from "@/components/FontSizeControl"
@@ -48,22 +49,34 @@ function getTopSpacing(style: ParagraphStyle, index: number, prevIsNormal: boole
   return "pt-4"
 }
 
+function useShowScrollTop(threshold = 300) {
+  const [show, setShow] = useState(false)
+  useEffect(() => {
+    function handleScroll() {
+      setShow(window.scrollY > threshold)
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [threshold])
+  return show
+}
+
 export function TranslationView({ result }: Props) {
   const retranslate = useRetranslate()
+  const showScrollTop = useShowScrollTop()
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <h1 className="text-2xl font-semibold tracking-tight truncate">
-            {result.filename}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {result.paragraphs.length} paragraphs &middot;{" "}
-            {new Date(result.created_at).toLocaleDateString()}
-          </p>
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight break-words">
+          {result.filename}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {result.paragraphs.length} paragraphs &middot;{" "}
+          {new Date(result.created_at).toLocaleDateString()}
+        </p>
+
+        <div className="mt-3 flex items-center gap-1.5">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -179,6 +192,15 @@ export function TranslationView({ result }: Props) {
           })}
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        className={`fixed bottom-6 right-6 z-50 flex size-10 items-center justify-center rounded-full bg-foreground text-background shadow-lg transition-all duration-200 hover:opacity-80 ${showScrollTop ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0 pointer-events-none"}`}
+        aria-label="Scroll to top"
+      >
+        <ArrowUp className="size-4" />
+      </button>
     </div>
   )
 }
