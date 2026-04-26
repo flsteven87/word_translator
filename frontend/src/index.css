@@ -121,4 +121,11 @@
     body {
         @apply bg-background text-foreground;
     }
+    body[data-sidebar-resizing] {
+        user-select: none;
+    }
+    body[data-sidebar-resizing] [data-slot="sidebar-gap"],
+    body[data-sidebar-resizing] [data-slot="sidebar-container"] {
+        transition: none !important;
+    }
 }
