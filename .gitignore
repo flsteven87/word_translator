@@ -24,3 +24,12 @@ Thumbs.db
 
 # Uploads
 uploads/
+
+# MCP config (contains tokens)
+.mcp.json
+
+# Claude Code local settings
+.claude/settings.local.json
+
+# graphify (derived artifacts)
+graphify-out/
